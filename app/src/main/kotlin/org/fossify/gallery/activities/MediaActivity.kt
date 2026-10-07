@@ -15,6 +15,7 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.request.RequestOptions
 import com.bumptech.glide.request.target.SimpleTarget
 import com.bumptech.glide.request.transition.Transition
+import java.util.Locale
 import org.fossify.commons.dialogs.CreateNewFolderDialog
 import org.fossify.commons.dialogs.RadioGroupDialog
 import org.fossify.commons.extensions.appLockManager
@@ -164,6 +165,7 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
     }
 
     private var mFavoritesOnly = false
+    private var mIsWaitingForMedia = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -248,6 +250,7 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
 
         refreshMenuItems()
         scrollToLastViewedItem()
+        checkNewMedia()
 
         binding.mediaFastscroller.updateColors(primaryColor)
         binding.mediaRefreshLayout.isEnabled = config.enablePullToRefresh
@@ -719,6 +722,20 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
         mLoadedInitialPhotos = true
     }
 
+    override fun onPendingMediaChanged(pendingFolders: Set<String>) {
+        mIsWaitingForMedia = if (mShowAll || mPath == RECENT) {
+            pendingFolders.isNotEmpty()
+        } else {
+            pendingFolders.contains(mPath.lowercase(Locale.getDefault()))
+        }
+
+        if (mIsWaitingForMedia) {
+            binding.loadingIndicator.show()
+        } else {
+            binding.loadingIndicator.hide()
+        }
+    }
+
     override fun onNewMediaCached(changedFolders: Set<String>) {
         val isRandomSorting = config.getFolderSorting(mPath) and SORT_BY_RANDOM != 0
         if (isRandomSorting || mLastSearchedText.isNotEmpty()) {
@@ -1117,7 +1134,9 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
         mMedia = media
 
         runOnUiThread {
-            binding.loadingIndicator.hide()
+            if (!mIsWaitingForMedia) {
+                binding.loadingIndicator.hide()
+            }
             binding.mediaRefreshLayout.isRefreshing = false
             binding.mediaEmptyTextPlaceholder.beVisibleIf(media.isEmpty() && !isFromCache)
             binding.mediaEmptyTextPlaceholder2.beVisibleIf(media.isEmpty() && !isFromCache)

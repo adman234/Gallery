@@ -17,16 +17,20 @@ import org.fossify.gallery.R
 import org.fossify.gallery.dialogs.StoragePermissionRequiredDialog
 import org.fossify.gallery.extensions.config
 import org.fossify.gallery.helpers.MediaStoreDelta
+import org.fossify.gallery.helpers.PendingMedia
 import org.fossify.gallery.helpers.getPermissionsToRequest
 
 open class SimpleActivity : BaseSimpleActivity() {
     companion object {
         private const val MEDIA_CHANGE_DEBOUNCE = 300L
+        private const val PENDING_MEDIA_CHECK_INTERVAL = 1000L
     }
 
     private var dialog: AlertDialog? = null
 
     private val mediaChangeHandler = Handler(Looper.getMainLooper())
+    private var lastPendingFolders: Set<String> = emptySet()
+    private var isObservingMedia = false
     private val observer = object : ContentObserver(null) {
         override fun onChange(selfChange: Boolean, uri: Uri?) {
             super.onChange(selfChange, uri)
@@ -40,17 +44,34 @@ open class SimpleActivity : BaseSimpleActivity() {
     protected fun checkNewMedia() {
         ensureBackgroundThread {
             val changedFolders = MediaStoreDelta.apply(applicationContext)
-            if (changedFolders.isNotEmpty()) {
-                runOnUiThread {
-                    if (!isDestroyed && !isFinishing) {
-                        onNewMediaCached(changedFolders)
-                    }
+            val pendingFolders = PendingMedia.getPendingFolders(applicationContext)
+            runOnUiThread {
+                if (isDestroyed || isFinishing) {
+                    return@runOnUiThread
+                }
+
+                if (changedFolders.isNotEmpty()) {
+                    onNewMediaCached(changedFolders)
+                }
+
+                if (pendingFolders != lastPendingFolders) {
+                    lastPendingFolders = pendingFolders
+                    onPendingMediaChanged(pendingFolders)
+                }
+
+                // keep looking while something is in the making, so the indicator goes away even if no change event arrives
+                if (pendingFolders.isNotEmpty() && isObservingMedia) {
+                    mediaChangeHandler.removeCallbacksAndMessages(null)
+                    mediaChangeHandler.postDelayed({ checkNewMedia() }, PENDING_MEDIA_CHECK_INTERVAL)
                 }
             }
         }
     }
 
     protected open fun onNewMediaCached(changedFolders: Set<String>) {}
+
+    // called with the lowercased paths of the folders that wait for a file another app is still writing
+    protected open fun onPendingMediaChanged(pendingFolders: Set<String>) {}
 
     override fun getAppIconIDs() = arrayListOf(
         R.mipmap.ic_launcher_red,
@@ -94,6 +115,7 @@ open class SimpleActivity : BaseSimpleActivity() {
 
     protected fun registerFileUpdateListener() {
         try {
+            isObservingMedia = true
             contentResolver.registerContentObserver(Images.Media.EXTERNAL_CONTENT_URI, true, observer)
             contentResolver.registerContentObserver(Video.Media.EXTERNAL_CONTENT_URI, true, observer)
         } catch (ignored: Exception) {
@@ -102,6 +124,7 @@ open class SimpleActivity : BaseSimpleActivity() {
 
     protected fun unregisterFileUpdateListener() {
         try {
+            isObservingMedia = false
             contentResolver.unregisterContentObserver(observer)
             mediaChangeHandler.removeCallbacksAndMessages(null)
         } catch (ignored: Exception) {

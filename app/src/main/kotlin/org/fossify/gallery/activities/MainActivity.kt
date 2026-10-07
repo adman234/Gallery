@@ -180,6 +180,7 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
 
     // shown on top of the real folders, it is never stored or scanned like them
     private var mRecentDir: Directory? = null
+    private var mPendingFolders: Set<String> = emptySet()
     private var mWasDefaultFolderChecked = false
     private var mWasMediaManagementPromptShown = false
     private var mLatestMediaId = 0L
@@ -352,6 +353,10 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
         if (!binding.mainMenu.isSearchOpen) {
             refreshMenuItems()
             tryLoadGallery()
+        }
+
+        if (hasAllPermissions(getPermissionsToRequest())) {
+            checkNewMedia()
         }
 
         if (config.searchAllFilesByDefault) {
@@ -650,6 +655,11 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
                 gotDirectories(addTempFolderIfNeeded(it))
             }
         }
+    }
+
+    override fun onPendingMediaChanged(pendingFolders: Set<String>) {
+        mPendingFolders = pendingFolders
+        getRecyclerAdapter()?.updatePendingFolders(pendingFolders)
     }
 
     override fun onNewMediaCached(changedFolders: Set<String>) {
@@ -1565,6 +1575,7 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
                 }
             }.apply {
                 setupZoomListener(mZoomListener)
+                updatePendingFolders(mPendingFolders)
                 runOnUiThread {
                     binding.directoriesGrid.adapter = this
                     setupScrollDirection()

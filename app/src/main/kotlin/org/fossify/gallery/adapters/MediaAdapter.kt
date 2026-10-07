@@ -698,14 +698,20 @@ class MediaAdapter(
 
             val isMotionPhoto = medium.isImage() && MotionPhotoHelper.isMotionPhotoName(medium.name)
             if (showFileTypes && (medium.isGIF() || medium.isRaw() || medium.isSVG() || isMotionPhoto)) {
-                fileType?.setText(
-                    when {
-                        isMotionPhoto -> R.string.motion_photo
-                        medium.type == TYPE_GIFS -> R.string.gif
-                        medium.type == TYPE_RAWS -> R.string.raw
-                        else -> R.string.svg
-                    }
-                )
+                if (isMotionPhoto) {
+                    // motion photos get their own icon instead of a text label
+                    fileType?.text = ""
+                    fileType?.setCompoundDrawablesWithIntrinsicBounds(R.drawable.ic_motion_photo_vector, 0, 0, 0)
+                } else {
+                    fileType?.setCompoundDrawablesWithIntrinsicBounds(0, 0, 0, 0)
+                    fileType?.setText(
+                        when (medium.type) {
+                            TYPE_GIFS -> R.string.gif
+                            TYPE_RAWS -> R.string.raw
+                            else -> R.string.svg
+                        }
+                    )
+                }
                 fileType?.beVisible()
             } else {
                 fileType?.beGone()

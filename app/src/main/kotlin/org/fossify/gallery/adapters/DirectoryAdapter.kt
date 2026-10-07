@@ -3,6 +3,7 @@ package org.fossify.gallery.adapters
 import android.content.Intent
 import android.content.pm.ShortcutInfo
 import android.content.pm.ShortcutManager
+import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.Icon
 import android.text.TextUtils
@@ -15,10 +16,12 @@ import android.widget.RelativeLayout
 import androidx.appcompat.content.res.AppCompatResources
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
+import androidx.swiperefreshlayout.widget.CircularProgressDrawable
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.bumptech.glide.Glide
 import com.google.gson.Gson
 import com.qtalk.recyclerviewfastscroller.RecyclerViewFastScroller
+import java.util.Locale
 import org.fossify.commons.activities.BaseSimpleActivity
 import org.fossify.commons.adapters.MyRecyclerViewAdapter
 import org.fossify.commons.dialogs.ConfirmationDialog
@@ -126,6 +129,7 @@ class DirectoryAdapter(
 
     private val config = activity.config
     private val isListViewType = config.viewTypeFolders == VIEW_TYPE_LIST
+    private var pendingFolders: Set<String> = emptySet()
     private var pinnedFolders = config.pinnedFolders
     private var scrollHorizontally = config.scrollHorizontally
     private var animateGifs = config.animateGifs
@@ -829,6 +833,13 @@ class DirectoryAdapter(
         }
     }
 
+    fun updatePendingFolders(newPendingFolders: Set<String>) {
+        if (newPendingFolders != pendingFolders) {
+            pendingFolders = newPendingFolders
+            notifyDataSetChanged()
+        }
+    }
+
     fun updateDirs(newDirs: ArrayList<Directory>) {
         val directories = newDirs.clone() as ArrayList<Directory>
         if (directories.hashCode() != currentDirectoriesHash) {
@@ -930,6 +941,21 @@ class DirectoryAdapter(
             }
 
             dirPin.beVisibleIf(pinnedFolders.contains(directory.path))
+            val isWaitingForMedia = pendingFolders.isNotEmpty() &&
+                (directory.path == RECENT || pendingFolders.contains(directory.path.lowercase(Locale.getDefault())))
+            if (isWaitingForMedia) {
+                // a file of this folder is still being written by another app, like a photo the camera is processing
+                val spinner = CircularProgressDrawable(root.context).apply {
+                    setStyle(CircularProgressDrawable.DEFAULT)
+                    setColorSchemeColors(Color.WHITE)
+                    start()
+                }
+
+                dirPin.setImageDrawable(spinner)
+                dirPin.beVisible()
+            } else {
+                dirPin.setImageResource(R.drawable.ic_pin_filled_vector)
+            }
             dirLocation.beVisibleIf(directory.location != LOCATION_INTERNAL)
             if (dirLocation.isVisible()) {
                 dirLocation.setImageResource(if (directory.location == LOCATION_SD) org.fossify.commons.R.drawable.ic_sd_card_vector else org.fossify.commons.R.drawable.ic_usb_vector)

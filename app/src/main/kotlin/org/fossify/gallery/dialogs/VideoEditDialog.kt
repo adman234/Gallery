@@ -19,13 +19,13 @@ import androidx.media3.transformer.ExportException
 import androidx.media3.transformer.ExportResult
 import androidx.media3.transformer.ProgressHolder
 import androidx.media3.transformer.Transformer
+import java.util.Locale
 import org.fossify.commons.activities.BaseSimpleActivity
 import org.fossify.commons.dialogs.RadioGroupDialog
 import org.fossify.commons.extensions.beGone
 import org.fossify.commons.extensions.beVisible
 import org.fossify.commons.extensions.getAlertDialogBuilder
 import org.fossify.commons.extensions.getFilenameFromPath
-import org.fossify.commons.extensions.getFormattedDuration
 import org.fossify.commons.extensions.getParentPath
 import org.fossify.commons.extensions.getProperPrimaryColor
 import org.fossify.commons.extensions.getProperTextColor
@@ -38,14 +38,17 @@ import org.fossify.gallery.R
 import org.fossify.gallery.databinding.DialogVideoEditBinding
 import java.io.File
 import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.roundToInt
 
 /** Trims a video, changes its speed and optionally removes its audio. The result is always saved as a new file. */
 class VideoEditDialog(val activity: BaseSimpleActivity, val path: String, val callback: (newPath: String) -> Unit) {
     companion object {
-        private const val SEEK_STEPS = 1000
+        private const val MIN_SEEK_STEPS = 1000
+        private const val MAX_SEEK_STEPS = 20000
+        private const val MS_PER_SEEK_STEP = 20
         private const val MIN_LENGTH_STEPS = 5
+        private const val NO_PREVIEW_PENDING = -1L
         private const val PREVIEW_SIZE = 640
         private const val PROGRESS_INTERVAL = 300L
         private val SPEEDS = floatArrayOf(0.125f, 0.25f, 0.5f, 1f, 2f, 4f)
@@ -55,7 +58,11 @@ class VideoEditDialog(val activity: BaseSimpleActivity, val path: String, val ca
     private val binding = DialogVideoEditBinding.inflate(activity.layoutInflater)
     private val retriever = MediaMetadataRetriever()
     private val previewExecutor = Executors.newSingleThreadExecutor()
-    private val previewRequest = AtomicInteger()
+    private val pendingPreviewMs = AtomicLong(NO_PREVIEW_PENDING)
+
+    @Volatile
+    private var pendingPreviewExact = false
+    private var seekSteps = MIN_SEEK_STEPS
     private val progressHandler = Handler(Looper.getMainLooper())
     private var durationMs = 0L
     private var speedIndex = DEFAULT_SPEED_INDEX
@@ -70,6 +77,7 @@ class VideoEditDialog(val activity: BaseSimpleActivity, val path: String, val ca
         } catch (ignored: Exception) {
         }
 
+        seekSteps = (durationMs / MS_PER_SEEK_STEP).toInt().coerceIn(MIN_SEEK_STEPS, MAX_SEEK_STEPS)
         if (durationMs <= 0L) {
             activity.toast(org.fossify.commons.R.string.unknown_error_occurred)
         } else {
@@ -99,18 +107,18 @@ class VideoEditDialog(val activity: BaseSimpleActivity, val path: String, val ca
         val primaryColor = activity.getProperPrimaryColor()
         binding.apply {
             arrayOf(videoEditStart, videoEditEnd).forEach {
-                it.max = SEEK_STEPS
+                it.max = seekSteps
                 it.setColors(textColor, primaryColor, 0)
             }
 
             videoEditStart.progress = 0
-            videoEditEnd.progress = SEEK_STEPS
+            videoEditEnd.progress = seekSteps
             videoEditStart.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
                     if (progress > videoEditEnd.progress - MIN_LENGTH_STEPS) {
-                        videoEditEnd.progress = (progress + MIN_LENGTH_STEPS).coerceAtMost(SEEK_STEPS)
-                        if (progress > SEEK_STEPS - MIN_LENGTH_STEPS) {
-                            seekBar.progress = SEEK_STEPS - MIN_LENGTH_STEPS
+                        videoEditEnd.progress = (progress + MIN_LENGTH_STEPS).coerceAtMost(seekSteps)
+                        if (progress > seekSteps - MIN_LENGTH_STEPS) {
+                            seekBar.progress = seekSteps - MIN_LENGTH_STEPS
                         }
                     }
 
@@ -122,7 +130,9 @@ class VideoEditDialog(val activity: BaseSimpleActivity, val path: String, val ca
 
                 override fun onStartTrackingTouch(seekBar: SeekBar) {}
 
-                override fun onStopTrackingTouch(seekBar: SeekBar) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar) {
+                    showPreview(getStartMs(), exact = true)
+                }
             })
 
             videoEditEnd.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -142,7 +152,9 @@ class VideoEditDialog(val activity: BaseSimpleActivity, val path: String, val ca
 
                 override fun onStartTrackingTouch(seekBar: SeekBar) {}
 
-                override fun onStopTrackingTouch(seekBar: SeekBar) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar) {
+                    showPreview(getEndMs(), exact = true)
+                }
             })
 
             videoEditSpeedHolder.setOnClickListener {
@@ -159,12 +171,12 @@ class VideoEditDialog(val activity: BaseSimpleActivity, val path: String, val ca
         }
 
         updateLabels()
-        showPreview(0L)
+        showPreview(0L, exact = true)
     }
 
-    private fun getStartMs() = durationMs * binding.videoEditStart.progress / SEEK_STEPS
+    private fun getStartMs() = durationMs * binding.videoEditStart.progress / seekSteps
 
-    private fun getEndMs() = durationMs * binding.videoEditEnd.progress / SEEK_STEPS
+    private fun getEndMs() = durationMs * binding.videoEditEnd.progress / seekSteps
 
     private fun getSpeedText(speed: Float): String {
         return if (speed < 1f) {
@@ -174,7 +186,11 @@ class VideoEditDialog(val activity: BaseSimpleActivity, val path: String, val ca
         }
     }
 
-    private fun formatMs(ms: Long) = (ms / 1000.0).roundToInt().getFormattedDuration()
+    // minutes:seconds.hundredths
+    private fun formatMs(ms: Long): String {
+        val hundredths = ms / 10
+        return String.format(Locale.US, "%02d:%02d.%02d", hundredths / 6000, hundredths / 100 % 60, hundredths % 100)
+    }
 
     private fun updateLabels() {
         val speed = SPEEDS[speedIndex]
@@ -187,26 +203,29 @@ class VideoEditDialog(val activity: BaseSimpleActivity, val path: String, val ca
         }
     }
 
-    // only the newest request is decoded, dragging a slider creates a lot of them
-    private fun showPreview(positionMs: Long) {
-        val request = previewRequest.incrementAndGet()
+    // Every decoded frame is shown, so the preview follows the finger. While a frame is being decoded only the newest
+    // requested position is kept, the ones in between get skipped.
+    private fun showPreview(positionMs: Long, exact: Boolean = false) {
+        pendingPreviewExact = exact
+        pendingPreviewMs.set(positionMs)
         try {
             previewExecutor.execute {
-                if (request != previewRequest.get()) {
+                val wantedMs = pendingPreviewMs.getAndSet(NO_PREVIEW_PENDING)
+                if (wantedMs == NO_PREVIEW_PENDING) {
                     return@execute
                 }
 
+                // sync frames decode a lot faster, good enough while the slider is moving
+                val option = if (pendingPreviewExact) MediaMetadataRetriever.OPTION_CLOSEST else MediaMetadataRetriever.OPTION_CLOSEST_SYNC
                 val frame: Bitmap? = try {
-                    retriever.getScaledFrameAtTime(positionMs * 1000, MediaMetadataRetriever.OPTION_CLOSEST_SYNC, PREVIEW_SIZE, PREVIEW_SIZE)
+                    retriever.getScaledFrameAtTime(wantedMs * 1000, option, PREVIEW_SIZE, PREVIEW_SIZE)
                 } catch (ignored: Throwable) {
                     null
                 }
 
                 if (frame != null) {
                     activity.runOnUiThread {
-                        if (request == previewRequest.get()) {
-                            binding.videoEditPreview.setImageBitmap(frame)
-                        }
+                        binding.videoEditPreview.setImageBitmap(frame)
                     }
                 }
             }
@@ -234,7 +253,7 @@ class VideoEditDialog(val activity: BaseSimpleActivity, val path: String, val ca
         val startMs = getStartMs()
         val endMs = getEndMs()
         val speed = SPEEDS[speedIndex]
-        val isTrimmed = binding.videoEditStart.progress > 0 || binding.videoEditEnd.progress < SEEK_STEPS
+        val isTrimmed = binding.videoEditStart.progress > 0 || binding.videoEditEnd.progress < seekSteps
         val removeAudio = binding.videoEditMute.isChecked
         if (!isTrimmed && speed == 1f && !removeAudio) {
             dialog?.dismiss()
@@ -246,7 +265,7 @@ class VideoEditDialog(val activity: BaseSimpleActivity, val path: String, val ca
             mediaItemBuilder.setClippingConfiguration(
                 MediaItem.ClippingConfiguration.Builder()
                     .setStartPositionMs(startMs)
-                    .setEndPositionMs(if (binding.videoEditEnd.progress < SEEK_STEPS) endMs else C.TIME_END_OF_SOURCE)
+                    .setEndPositionMs(if (binding.videoEditEnd.progress < seekSteps) endMs else C.TIME_END_OF_SOURCE)
                     .build()
             )
         }
@@ -345,7 +364,7 @@ class VideoEditDialog(val activity: BaseSimpleActivity, val path: String, val ca
 
     private fun cleanup() {
         cancelExport()
-        previewRequest.incrementAndGet()
+        pendingPreviewMs.set(NO_PREVIEW_PENDING)
         previewExecutor.execute {
             try {
                 retriever.release()
