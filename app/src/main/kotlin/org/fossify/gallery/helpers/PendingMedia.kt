@@ -11,7 +11,6 @@ import org.fossify.commons.extensions.isImageFast
 import org.fossify.commons.extensions.isVideoFast
 import org.fossify.commons.helpers.isRPlus
 import java.io.File
-import java.util.Locale
 
 /**
  * Finds media that another app (usually the camera) has announced but not finished writing yet.
@@ -19,10 +18,10 @@ import java.util.Locale
  */
 object PendingMedia {
     // anything older is a leftover of a failed write, not a photo which is still being processed
-    private const val MAX_PENDING_AGE_MS = 90_000L
+    private const val MAX_PENDING_AGE_MS = 10_000L
     private const val PENDING_FILE_PREFIX = ".pending-"
 
-    /** Returns the lowercased paths of the folders which have a file in the making. */
+    /** Returns the paths of the folders which have a file in the making. */
     fun getPendingFolders(context: Context): Set<String> {
         val folders = HashSet<String>()
         if (!isRPlus()) {
@@ -41,7 +40,7 @@ object PendingMedia {
                     val path = cursor.getString(0) ?: continue
                     val addedMs = cursor.getLong(1) * 1000
                     if (addedMs >= oldestAllowedMs && isMediaName(path)) {
-                        folders.add(path.getParentPath().lowercase(Locale.getDefault()))
+                        folders.add(path.getParentPath())
                     }
                 }
             }
@@ -57,7 +56,7 @@ object PendingMedia {
                 } == true
 
                 if (hasPendingFile) {
-                    folders.add(cameraFolder.absolutePath.lowercase(Locale.getDefault()))
+                    folders.add(cameraFolder.absolutePath)
                 }
             }
         } catch (ignored: Exception) {

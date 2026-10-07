@@ -70,7 +70,7 @@ open class SimpleActivity : BaseSimpleActivity() {
 
     protected open fun onNewMediaCached(changedFolders: Set<String>) {}
 
-    // called with the lowercased paths of the folders that wait for a file another app is still writing
+    // called with the paths of the folders that wait for a file another app is still writing
     protected open fun onPendingMediaChanged(pendingFolders: Set<String>) {}
 
     override fun getAppIconIDs() = arrayListOf(

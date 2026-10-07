@@ -726,7 +726,7 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
         mIsWaitingForMedia = if (mShowAll || mPath == RECENT) {
             pendingFolders.isNotEmpty()
         } else {
-            pendingFolders.contains(mPath.lowercase(Locale.getDefault()))
+            pendingFolders.any { it.equals(mPath, true) }
         }
 
         if (mIsWaitingForMedia) {

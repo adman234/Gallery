@@ -99,6 +99,7 @@ import org.fossify.gallery.helpers.FOLDER_STYLE_SQUARE
 import org.fossify.gallery.helpers.LOCATION_INTERNAL
 import org.fossify.gallery.helpers.LOCATION_SD
 import org.fossify.gallery.helpers.PATH
+import org.fossify.gallery.helpers.PENDING_PLACEHOLDER
 import org.fossify.gallery.helpers.RECENT
 import org.fossify.gallery.helpers.RECYCLE_BIN
 import org.fossify.gallery.helpers.ROUNDED_CORNERS_BIG
@@ -233,7 +234,10 @@ class DirectoryAdapter(
 
     override fun getSelectableItemCount() = dirs.size
 
-    override fun getIsItemSelectable(position: Int) = dirs.getOrNull(position)?.path != RECENT
+    override fun getIsItemSelectable(position: Int): Boolean {
+        val directory = dirs.getOrNull(position) ?: return false
+        return directory.path != RECENT && directory.sortValue != PENDING_PLACEHOLDER
+    }
 
     override fun getItemSelectionKey(position: Int) = dirs.getOrNull(position)?.path?.hashCode()
 
@@ -834,8 +838,9 @@ class DirectoryAdapter(
     }
 
     fun updatePendingFolders(newPendingFolders: Set<String>) {
-        if (newPendingFolders != pendingFolders) {
-            pendingFolders = newPendingFolders
+        val lowercased = newPendingFolders.map { it.lowercase(Locale.getDefault()) }.toHashSet()
+        if (lowercased != pendingFolders) {
+            pendingFolders = lowercased
             notifyDataSetChanged()
         }
     }

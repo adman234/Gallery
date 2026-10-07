@@ -130,6 +130,7 @@ import org.fossify.gallery.helpers.MAX_COLUMN_COUNT
 import org.fossify.gallery.helpers.MONTH_MILLISECONDS
 import org.fossify.gallery.helpers.MediaFetcher
 import org.fossify.gallery.helpers.MediaStoreDelta
+import org.fossify.gallery.helpers.PENDING_PLACEHOLDER
 import org.fossify.gallery.helpers.PICKED_PATHS
 import org.fossify.gallery.helpers.RECENT
 import org.fossify.gallery.helpers.RECYCLE_BIN
@@ -660,6 +661,45 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
     override fun onPendingMediaChanged(pendingFolders: Set<String>) {
         mPendingFolders = pendingFolders
         getRecyclerAdapter()?.updatePendingFolders(pendingFolders)
+
+        // an empty folder has no tile, reload so it gets a temporary one for the spinner (or loses it again)
+        val isResumed = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        if (isResumed && !config.showAll && !binding.mainMenu.isSearchOpen) {
+            mIsGettingDirs = false
+            getDirectories()
+        }
+    }
+
+    // folders which wait for a file but have no media yet get a tile for as long as they wait
+    private fun addPendingPlaceholders(dirs: ArrayList<Directory>, insertAt: Int) {
+        if (mPendingFolders.isEmpty() || mCurrentPathPrefix.isNotEmpty()) {
+            return
+        }
+
+        val showHidden = config.shouldShowHidden
+        val excludedFolders = config.excludedFolders
+        mPendingFolders.forEach { folder ->
+            val isShown = dirs.any { it.path.equals(folder, true) }
+            val isHidden = !showHidden && folder.contains("/.")
+            val isExcluded = excludedFolders.any { folder == it || folder.startsWith("$it/") }
+            if (!isShown && !isHidden && !isExcluded) {
+                val placeholder = Directory(
+                    id = null,
+                    path = folder,
+                    tmb = "",
+                    name = folder.getFilenameFromPath(),
+                    mediaCnt = 0,
+                    modified = 0L,
+                    taken = 0L,
+                    size = 0L,
+                    location = LOCATION_INTERNAL,
+                    types = 0,
+                    sortValue = PENDING_PLACEHOLDER
+                )
+
+                dirs.add(insertAt.coerceAtMost(dirs.size), placeholder)
+            }
+        }
     }
 
     override fun onNewMediaCached(changedFolders: Set<String>) {
@@ -1547,9 +1587,12 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
         ).clone() as ArrayList<Directory>
 
         val recentDir = mRecentDir
-        if (recentDir != null && config.showRecentFolder && mCurrentPathPrefix.isEmpty()) {
-            dirsToShow.add(0, recentDir)
+        val showRecentDir = recentDir != null && config.showRecentFolder && mCurrentPathPrefix.isEmpty()
+        if (showRecentDir) {
+            dirsToShow.add(0, recentDir!!)
         }
+
+        addPendingPlaceholders(dirsToShow, if (showRecentDir) 1 else 0)
 
         if (currAdapter == null || forceRecreate) {
             mDirsIgnoringSearch = dirs
@@ -1564,7 +1607,9 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
             ) {
                 val clickedDir = it as Directory
                 val path = clickedDir.path
-                if (path == RECENT || clickedDir.subfoldersCount == 1 || !config.groupDirectSubfolders) {
+                if (clickedDir.sortValue == PENDING_PLACEHOLDER) {
+                    // nothing to open yet, and opening an empty folder would clean it up
+                } else if (path == RECENT || clickedDir.subfoldersCount == 1 || !config.groupDirectSubfolders) {
                     if (path != config.tempFolderPath) {
                         itemClicked(path)
                     }

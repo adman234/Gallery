@@ -13,6 +13,7 @@ const val SHOW_RECENT_FOLDER = "show_recent_folder"
 const val SHOW_RECENT = "show_recent"
 const val RECENT = "recent"
 const val RECENT_MEDIA_LIMIT = 100
+const val PENDING_PLACEHOLDER = "pending_placeholder"
 const val TEMPORARILY_SHOW_HIDDEN = "temporarily_show_hidden"
 const val TEMPORARILY_SHOW_EXCLUDED = "temporarily_show_excluded"
 const val EXCLUDED_PASSWORD_PROTECTION = "excluded_password_protection"
