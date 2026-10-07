@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/video_edit_scrollview"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <LinearLayout
+        android:id="@+id/video_edit_holder"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingStart="@dimen/activity_margin"
+        android:paddingTop="@dimen/activity_margin"
+        android:paddingEnd="@dimen/activity_margin">
+
+        <ImageView
+            android:id="@+id/video_edit_preview"
+            android:layout_width="match_parent"
+            android:layout_height="180dp"
+            android:contentDescription="@null"
+            android:scaleType="fitCenter" />
+
+        <org.fossify.commons.views.MyTextView
+            android:id="@+id/video_edit_start_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/activity_margin"
+            tools:text="Start: 0:00" />
+
+        <org.fossify.commons.views.MySeekBar
+            android:id="@+id/video_edit_start"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="@dimen/medium_margin"
+            android:paddingBottom="@dimen/medium_margin" />
+
+        <org.fossify.commons.views.MyTextView
+            android:id="@+id/video_edit_end_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/medium_margin"
+            tools:text="End: 0:12" />
+
+        <org.fossify.commons.views.MySeekBar
+            android:id="@+id/video_edit_end"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="@dimen/medium_margin"
+            android:paddingBottom="@dimen/medium_margin" />
+
+        <RelativeLayout
+            android:id="@+id/video_edit_speed_holder"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/medium_margin"
+            android:background="?attr/selectableItemBackground"
+            android:paddingTop="@dimen/bigger_margin"
+            android:paddingBottom="@dimen/bigger_margin">
+
+            <org.fossify.commons.views.MyTextView
+                android:id="@+id/video_edit_speed_label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentStart="true"
+                android:text="@string/speed" />
+
+            <org.fossify.commons.views.MyTextView
+                android:id="@+id/video_edit_speed_value"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                tools:text="1x" />
+
+        </RelativeLayout>
+
+        <org.fossify.commons.views.MyAppCompatCheckbox
+            android:id="@+id/video_edit_mute"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingTop="@dimen/medium_margin"
+            android:paddingBottom="@dimen/medium_margin"
+            android:text="@string/remove_audio" />
+
+        <org.fossify.commons.views.MyTextView
+            android:id="@+id/video_edit_result_label"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/medium_margin"
+            android:alpha="0.7"
+            tools:text="Result: 0:12" />
+
+        <ProgressBar
+            android:id="@+id/video_edit_progress"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/activity_margin"
+            android:max="100"
+            android:visibility="gone" />
+
+    </LinearLayout>
+</ScrollView>

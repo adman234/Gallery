@@ -315,4 +315,9 @@
     <string name="use_system_trash">Move deleted files to the system trash instead of the Recycle Bin (needs All files access)</string>
     <string name="recent">Recent</string>
     <string name="show_recent_folder">Show a Recent folder with the newest media</string>
+    <string name="edit_video">Edit video</string>
+    <string name="video_start">Start</string>
+    <string name="video_end">End</string>
+    <string name="resulting_length">Resulting length</string>
+    <string name="remove_audio">Remove audio</string>
 </resources>

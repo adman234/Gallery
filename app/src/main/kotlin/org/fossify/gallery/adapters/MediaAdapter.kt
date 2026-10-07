@@ -38,6 +38,7 @@ import org.fossify.commons.extensions.isExternalStorageManager
 import org.fossify.commons.extensions.isImageFast
 import org.fossify.commons.extensions.isPathOnOTG
 import org.fossify.commons.extensions.isRestrictedWithSAFSdk30
+import org.fossify.commons.extensions.isVideoFast
 import org.fossify.commons.extensions.needsStupidWritePermissions
 import org.fossify.commons.extensions.recycleBinPath
 import org.fossify.commons.extensions.rescanPaths
@@ -57,6 +58,7 @@ import org.fossify.gallery.databinding.ThumbnailSectionBinding
 import org.fossify.gallery.databinding.VideoItemGridBinding
 import org.fossify.gallery.databinding.VideoItemListBinding
 import org.fossify.gallery.dialogs.DeleteWithRememberDialog
+import org.fossify.gallery.dialogs.VideoEditDialog
 import org.fossify.gallery.extensions.config
 import org.fossify.gallery.extensions.fixDateTaken
 import org.fossify.gallery.extensions.getShortcutImage
@@ -323,7 +325,14 @@ class MediaAdapter(
 
     private fun editFile() {
         val path = getFirstSelectedItemPath() ?: return
-        activity.openEditor(path)
+        if (path.isVideoFast()) {
+            VideoEditDialog(activity, path) {
+                listener?.refreshItems()
+                finishActMode()
+            }
+        } else {
+            activity.openEditor(path)
+        }
     }
 
     private fun openPath() {

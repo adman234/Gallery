@@ -100,6 +100,7 @@ import org.fossify.gallery.databinding.ActivityMediumBinding
 import org.fossify.gallery.dialogs.DeleteWithRememberDialog
 import org.fossify.gallery.dialogs.SaveAsDialog
 import org.fossify.gallery.dialogs.SlideshowDialog
+import org.fossify.gallery.dialogs.VideoEditDialog
 import org.fossify.gallery.extensions.config
 import org.fossify.gallery.extensions.favoritesDB
 import org.fossify.gallery.extensions.fixDateTaken
@@ -370,7 +371,7 @@ class ViewPagerActivity : BaseViewerActivity(), ViewPager.OnPageChangeListener, 
                 R.id.menu_delete -> checkDeleteConfirmation()
                 R.id.menu_rename -> checkMediaManagementAndRename()
                 R.id.menu_print -> printFile()
-                R.id.menu_edit -> openEditor(getCurrentPath())
+                R.id.menu_edit -> editCurrentMedium()
                 R.id.menu_properties -> showProperties()
                 R.id.menu_show_on_map -> showFileOnMap(getCurrentPath())
                 R.id.menu_rotate_right -> rotateImage(90)
@@ -974,7 +975,7 @@ class ViewPagerActivity : BaseViewerActivity(), ViewPager.OnPageChangeListener, 
         binding.bottomActions.bottomEdit.beVisibleIf(visibleBottomActions and BOTTOM_ACTION_EDIT != 0 && currentMedium?.isSVG() == false)
         binding.bottomActions.bottomEdit.setOnLongClickListener { toast(R.string.edit); true }
         binding.bottomActions.bottomEdit.setOnClickListener {
-            openEditor(getCurrentPath())
+            editCurrentMedium()
         }
 
         binding.bottomActions.bottomShare.beVisibleIf(visibleBottomActions and BOTTOM_ACTION_SHARE != 0)
@@ -1170,6 +1171,18 @@ class ViewPagerActivity : BaseViewerActivity(), ViewPager.OnPageChangeListener, 
     private fun restoreFile() {
         restoreRecycleBinPath(getCurrentPath()) {
             refreshViewPager()
+        }
+    }
+
+    private fun editCurrentMedium() {
+        val medium = getCurrentMedium() ?: return
+        if (medium.isVideo()) {
+            (getCurrentFragment() as? VideoFragment)?.pauseVideo()
+            VideoEditDialog(this, medium.path) {
+                refreshViewPager()
+            }
+        } else {
+            openEditor(medium.path)
         }
     }
 

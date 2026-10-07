@@ -838,7 +838,7 @@ class VideoFragment : ViewPagerFragment(), TextureView.SurfaceTextureListener,
         activity?.window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
     }
 
-    private fun pauseVideo() {
+    fun pauseVideo() {
         if (mExoPlayer == null) {
             return
         }
