@@ -300,6 +300,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 [#648]: https://github.com/FossifyOrg/Gallery/issues/648
 [#659]: https://github.com/FossifyOrg/Gallery/issues/659
 [#666]: https://github.com/FossifyOrg/Gallery/issues/666
+[#692]: https://github.com/FossifyOrg/Gallery/issues/692
 [#718]: https://github.com/FossifyOrg/Gallery/issues/718
 [#734]: https://github.com/FossifyOrg/Gallery/issues/734
 [#743]: https://github.com/FossifyOrg/Gallery/issues/743
