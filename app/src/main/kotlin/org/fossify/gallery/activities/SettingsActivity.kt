@@ -63,6 +63,8 @@ class SettingsActivity : SimpleActivity() {
         setupSearchAllFiles()
         setupShowHiddenItems()
         setupStripMetadataOnShare()
+        setupUseSystemTrash()
+        setupShowRecentFolder()
         setupAutoplayVideos()
         setupRememberLastVideo()
         setupLoopVideos()
@@ -261,6 +263,23 @@ class SettingsActivity : SimpleActivity() {
     private fun toggleHiddenItems() {
         binding.settingsShowHiddenItems.toggle()
         config.showHiddenMedia = binding.settingsShowHiddenItems.isChecked
+    }
+
+    private fun setupShowRecentFolder() {
+        binding.settingsShowRecentFolder.isChecked = config.showRecentFolder
+        binding.settingsShowRecentFolderHolder.setOnClickListener {
+            binding.settingsShowRecentFolder.toggle()
+            config.showRecentFolder = binding.settingsShowRecentFolder.isChecked
+        }
+    }
+
+    private fun setupUseSystemTrash() {
+        binding.settingsUseSystemTrashHolder.beVisibleIf(isRPlus())
+        binding.settingsUseSystemTrash.isChecked = config.useSystemTrash
+        binding.settingsUseSystemTrashHolder.setOnClickListener {
+            binding.settingsUseSystemTrash.toggle()
+            config.useSystemTrash = binding.settingsUseSystemTrash.isChecked
+        }
     }
 
     private fun setupStripMetadataOnShare() {

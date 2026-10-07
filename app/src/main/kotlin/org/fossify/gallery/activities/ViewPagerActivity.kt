@@ -121,6 +121,7 @@ import org.fossify.gallery.extensions.shareMediumPath
 import org.fossify.gallery.extensions.showFileOnMap
 import org.fossify.gallery.extensions.showSystemUI
 import org.fossify.gallery.extensions.toggleFileVisibility
+import org.fossify.gallery.extensions.trashWithSystemIfEnabled
 import org.fossify.gallery.extensions.tryCopyMoveFilesTo
 import org.fossify.gallery.extensions.tryDeleteFileDirItem
 import org.fossify.gallery.extensions.updateDBMediaPath
@@ -155,6 +156,7 @@ import org.fossify.gallery.helpers.MAX_PRINT_SIDE_SIZE
 import org.fossify.gallery.helpers.MotionPhotoHelper
 import org.fossify.gallery.helpers.PATH
 import org.fossify.gallery.helpers.PORTRAIT_PATH
+import org.fossify.gallery.helpers.RECENT
 import org.fossify.gallery.helpers.RECYCLE_BIN
 import org.fossify.gallery.helpers.ROTATE_BY_ASPECT_RATIO
 import org.fossify.gallery.helpers.ROTATE_BY_DEVICE_ROTATION
@@ -163,6 +165,7 @@ import org.fossify.gallery.helpers.SHOW_ALL
 import org.fossify.gallery.helpers.SHOW_FAVORITES
 import org.fossify.gallery.helpers.SHOW_NEXT_ITEM
 import org.fossify.gallery.helpers.SHOW_PREV_ITEM
+import org.fossify.gallery.helpers.SHOW_RECENT
 import org.fossify.gallery.helpers.SHOW_RECYCLE_BIN
 import org.fossify.gallery.helpers.SKIP_AUTHENTICATION
 import org.fossify.gallery.helpers.SLIDESHOW_ANIMATION_FADE
@@ -497,6 +500,7 @@ class ViewPagerActivity : BaseViewerActivity(), ViewPager.OnPageChangeListener, 
         mDirectory = when {
             isShowingFavorites -> FAVORITES
             isShowingRecycleBin -> RECYCLE_BIN
+            intent.getBooleanExtra(SHOW_RECENT, false) -> RECENT
             else -> mPath.getParentPath()
         }
         binding.mediumViewerToolbar.title = mPath.getFilenameFromPath()
@@ -1286,17 +1290,23 @@ class ViewPagerActivity : BaseViewerActivity(), ViewPager.OnPageChangeListener, 
                     onPageSelected(0)
                 }
 
-                movePathsInRecycleBin(arrayListOf(path)) {
-                    if (it) {
-                        tryDeleteFileDirItem(fileDirItem, false, false) {
-                            mIgnoredPaths.remove(fileDirItem.path)
-                            if (media.isEmpty()) {
-                                deleteDirectoryIfEmpty()
-                                finish()
+                val onRemoved = {
+                    mIgnoredPaths.remove(fileDirItem.path)
+                    if (media.isEmpty()) {
+                        deleteDirectoryIfEmpty()
+                        finish()
+                    }
+                }
+
+                trashWithSystemIfEnabled(arrayListOf(fileDirItem), onTrashed = { onRemoved() }) {
+                    movePathsInRecycleBin(arrayListOf(path)) {
+                        if (it) {
+                            tryDeleteFileDirItem(fileDirItem, false, false) {
+                                onRemoved()
                             }
+                        } else {
+                            toast(org.fossify.commons.R.string.unknown_error_occurred)
                         }
-                    } else {
-                        toast(org.fossify.commons.R.string.unknown_error_occurred)
                     }
                 }
             }

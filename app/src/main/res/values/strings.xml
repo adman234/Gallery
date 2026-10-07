@@ -312,4 +312,7 @@
     <string name="motion_video_not_found">No motion video found in this photo</string>
     <string name="show_favorites_only">Show favorites only</string>
     <string name="show_all_media">Show all media</string>
+    <string name="use_system_trash">Move deleted files to the system trash instead of the Recycle Bin (needs All files access)</string>
+    <string name="recent">Recent</string>
+    <string name="show_recent_folder">Show a Recent folder with the newest media</string>
 </resources>

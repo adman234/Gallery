@@ -8,7 +8,9 @@ import org.fossify.commons.helpers.SORT_BY_DATE_TAKEN
 import org.fossify.commons.helpers.SORT_BY_SIZE
 import org.fossify.gallery.extensions.config
 import org.fossify.gallery.extensions.getFavoritePaths
+import org.fossify.gallery.extensions.getRecentMedia
 import org.fossify.gallery.helpers.*
+import org.fossify.gallery.helpers.RECENT
 import org.fossify.gallery.models.Medium
 import org.fossify.gallery.models.ThumbnailItem
 
@@ -20,6 +22,10 @@ class GetMediaAsynctask(
     private val mediaFetcher = MediaFetcher(context)
 
     override fun doInBackground(vararg params: Void): ArrayList<ThumbnailItem> {
+        if (mPath == RECENT && !showAll) {
+            return ArrayList<ThumbnailItem>(context.getRecentMedia())
+        }
+
         val pathToUse = if (showAll) SHOW_ALL else mPath
         val folderGrouping = context.config.getFolderGrouping(pathToUse)
         val folderSorting = context.config.getFolderSorting(pathToUse)
@@ -62,7 +68,10 @@ class GetMediaAsynctask(
 
     override fun onPostExecute(media: ArrayList<ThumbnailItem>) {
         super.onPostExecute(media)
-        callback(media)
+        // a stopped fetch holds a partial list, callers would delete everything missing from it
+        if (!mediaFetcher.shouldStop) {
+            callback(media)
+        }
     }
 
     fun stopFetching() {

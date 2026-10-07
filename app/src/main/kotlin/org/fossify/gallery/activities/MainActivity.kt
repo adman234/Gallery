@@ -98,6 +98,7 @@ import org.fossify.gallery.extensions.getDistinctPath
 import org.fossify.gallery.extensions.getFavoritePaths
 import org.fossify.gallery.extensions.getNoMediaFoldersSync
 import org.fossify.gallery.extensions.getOTGFolderChildrenNames
+import org.fossify.gallery.extensions.getRecentDirectory
 import org.fossify.gallery.extensions.getSortedDirectories
 import org.fossify.gallery.extensions.handleExcludedFolderPasswordProtection
 import org.fossify.gallery.extensions.handleMediaManagementPrompt
@@ -111,6 +112,7 @@ import org.fossify.gallery.extensions.movePinnedDirectoriesToFront
 import org.fossify.gallery.extensions.openRecycleBin
 import org.fossify.gallery.extensions.removeInvalidDBDirectories
 import org.fossify.gallery.extensions.storeDirectoryItems
+import org.fossify.gallery.extensions.trashWithSystemIfEnabled
 import org.fossify.gallery.extensions.tryDeleteFileDirItem
 import org.fossify.gallery.extensions.updateDBDirectory
 import org.fossify.gallery.extensions.updateWidgets
@@ -174,6 +176,9 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
     private var mLoadedInitialPhotos = false
     private var mShouldStopFetching = false
     private val mScanId = AtomicInteger()
+
+    // shown on top of the real folders, it is never stored or scanned like them
+    private var mRecentDir: Directory? = null
     private var mWasDefaultFolderChecked = false
     private var mWasMediaManagementPromptShown = false
     private var mLatestMediaId = 0L
@@ -639,6 +644,7 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
         ensureBackgroundThread {
             // cache whatever was added since the last check first, so new media shows up together with the cached folders
             MediaStoreDelta.apply(applicationContext)
+            mRecentDir = getRecentDirectory()
             getCachedDirectories(getVideos && !getImages, getImages && !getVideos) {
                 gotDirectories(addTempFolderIfNeeded(it))
             }
@@ -811,14 +817,19 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
         }
 
         if (config.useRecycleBin && !config.tempSkipRecycleBin) {
-            val pathsToDelete = ArrayList<String>()
-            itemsToDelete.mapTo(pathsToDelete) { it.path }
+            trashWithSystemIfEnabled(itemsToDelete, onTrashed = {
+                // nothing is left to delete for these, this only refreshes the list and cleans up emptied folders
+                deleteFilteredFileDirItems(ArrayList(), folders)
+            }) { remaining ->
+                val pathsToDelete = ArrayList<String>()
+                remaining.mapTo(pathsToDelete) { it.path }
 
-            movePathsInRecycleBin(pathsToDelete) {
-                if (it) {
-                    deleteFilteredFileDirItems(itemsToDelete, folders)
-                } else {
-                    toast(org.fossify.commons.R.string.unknown_error_occurred)
+                movePathsInRecycleBin(pathsToDelete) {
+                    if (it) {
+                        deleteFilteredFileDirItems(remaining, folders)
+                    } else {
+                        toast(org.fossify.commons.R.string.unknown_error_occurred)
+                    }
                 }
             }
         } else {
@@ -1233,6 +1244,11 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
                     android11Files = android11Files
                 )
 
+                // a superseded scan gets partial results, using them would drop valid cached items
+                if (mShouldStopFetching || scanId != mScanId.get() || mLastMediaFetcher?.shouldStop == true) {
+                    return
+                }
+
                 val newDir = if (curMedia.isEmpty()) {
                     if (directory.path != tempFolderPath) {
                         dirPathsToRemove.add(directory.path)
@@ -1279,7 +1295,17 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
                     }.start()
                 }
 
-                if (!directory.isRecycleBin()) {
+                if (directory.areFavorites()) {
+                    // favorites are a view over files of other folders, never delete their cached rows from here
+                    getCachedMedia(directory.path, getVideosOnly, getImagesOnly) {
+                        it.forEach {
+                            val path = (it as? Medium)?.path
+                            if (path != null && !favoritePaths.contains(path) && getDoesFilePathExist(path)) {
+                                mediaDB.updateFavorite(path, false)
+                            }
+                        }
+                    }
+                } else if (!directory.isRecycleBin()) {
                     getCachedMedia(directory.path, getVideosOnly, getImagesOnly) {
                         val mediaToDelete = ArrayList<Medium>()
                         it.forEach {
@@ -1508,6 +1534,11 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
             allDirs = mDirs,
             currentPathPrefix = mCurrentPathPrefix
         ).clone() as ArrayList<Directory>
+
+        val recentDir = mRecentDir
+        if (recentDir != null && config.showRecentFolder && mCurrentPathPrefix.isEmpty()) {
+            dirsToShow.add(0, recentDir)
+        }
 
         if (currAdapter == null || forceRecreate) {
             mDirsIgnoringSearch = dirs

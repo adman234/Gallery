@@ -92,6 +92,8 @@ import org.fossify.gallery.helpers.LOCATION_SD
 import org.fossify.gallery.helpers.MediaFetcher
 import org.fossify.gallery.helpers.MyWidgetProvider
 import org.fossify.gallery.helpers.PicassoRoundedCornersTransformation
+import org.fossify.gallery.helpers.RECENT
+import org.fossify.gallery.helpers.RECENT_MEDIA_LIMIT
 import org.fossify.gallery.helpers.RECYCLE_BIN
 import org.fossify.gallery.helpers.ROUNDED_CORNERS_NONE
 import org.fossify.gallery.helpers.ROUNDED_CORNERS_SMALL
@@ -926,6 +928,11 @@ fun Context.getCachedMedia(
     callback: (ArrayList<ThumbnailItem>) -> Unit
 ) {
     ensureBackgroundThread {
+        if (path == RECENT) {
+            callback(ArrayList<ThumbnailItem>(getRecentMedia()))
+            return@ensureBackgroundThread
+        }
+
         val mediaFetcher = MediaFetcher(this)
         val foldersToScan = if (path.isEmpty()) {
             mediaFetcher.getFoldersToScan()
@@ -1414,4 +1421,48 @@ fun Context.resolveUriScheme(
         "content" -> onContentUri(uri)
         else -> onUnknown()
     }
+}
+
+// the newest cached media across all visible folders, used by the Recent pseudo folder
+fun Context.getRecentMedia(): ArrayList<Medium> {
+    val showHidden = config.shouldShowHidden
+    val excludedFolders = config.excludedFolders
+    val filterMedia = config.filterMedia
+    val candidates = try {
+        mediaDB.getRecentMedia(RECENT_MEDIA_LIMIT * 4)
+    } catch (ignored: Exception) {
+        return ArrayList()
+    }
+
+    val media = candidates.asSequence().filter { medium ->
+        (showHidden || !medium.path.contains("/."))
+            && filterMedia and medium.type != 0
+            && excludedFolders.none { medium.path.startsWith("$it/") }
+            && !config.isFolderProtected(medium.parentPath)
+            && File(medium.path).exists()
+    }.take(RECENT_MEDIA_LIMIT).toList()
+
+    return ArrayList(media)
+}
+
+fun Context.getRecentDirectory(): Directory? {
+    if (!config.showRecentFolder) {
+        return null
+    }
+
+    val media = getRecentMedia()
+    val newest = media.firstOrNull() ?: return null
+    return Directory(
+        id = null,
+        path = RECENT,
+        tmb = newest.path,
+        name = getString(R.string.recent),
+        mediaCnt = media.size,
+        modified = newest.modified,
+        taken = newest.taken,
+        size = 0L,
+        location = LOCATION_INTERNAL,
+        types = media.getDirMediaTypes(),
+        sortValue = ""
+    )
 }

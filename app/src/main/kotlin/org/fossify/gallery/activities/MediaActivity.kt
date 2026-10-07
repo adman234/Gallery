@@ -85,6 +85,7 @@ import org.fossify.gallery.extensions.openRecycleBin
 import org.fossify.gallery.extensions.restoreRecycleBinPaths
 import org.fossify.gallery.extensions.showRecycleBinEmptyingDialog
 import org.fossify.gallery.extensions.showRestoreConfirmationDialog
+import org.fossify.gallery.extensions.trashWithSystemIfEnabled
 import org.fossify.gallery.extensions.tryDeleteFileDirItem
 import org.fossify.gallery.extensions.updateWidgets
 import org.fossify.gallery.helpers.DIRECTORY
@@ -98,10 +99,12 @@ import org.fossify.gallery.helpers.MediaFetcher
 import org.fossify.gallery.helpers.MediaStoreDelta
 import org.fossify.gallery.helpers.PATH
 import org.fossify.gallery.helpers.PICKED_PATHS
+import org.fossify.gallery.helpers.RECENT
 import org.fossify.gallery.helpers.RECYCLE_BIN
 import org.fossify.gallery.helpers.SET_WALLPAPER_INTENT
 import org.fossify.gallery.helpers.SHOW_ALL
 import org.fossify.gallery.helpers.SHOW_FAVORITES
+import org.fossify.gallery.helpers.SHOW_RECENT
 import org.fossify.gallery.helpers.SHOW_RECYCLE_BIN
 import org.fossify.gallery.helpers.SHOW_TEMP_HIDDEN_DURATION
 import org.fossify.gallery.helpers.SKIP_AUTHENTICATION
@@ -363,11 +366,11 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
             findItem(R.id.open_camera).isVisible = mShowAll
             findItem(R.id.about).isVisible = mShowAll
             findItem(R.id.create_new_folder).isVisible =
-                !mShowAll && mPath != RECYCLE_BIN && mPath != FAVORITES
+                !mShowAll && mPath != RECYCLE_BIN && mPath != FAVORITES && mPath != RECENT
             findItem(R.id.open_recycle_bin).isVisible = config.useRecycleBin && mPath != RECYCLE_BIN
 
             findItem(R.id.toggle_favorites_only).apply {
-                isVisible = mPath != RECYCLE_BIN && mPath != FAVORITES
+                isVisible = mPath != RECYCLE_BIN && mPath != FAVORITES && mPath != RECENT
                 setTitle(if (mFavoritesOnly) R.string.show_all_media else R.string.show_favorites_only)
             }
 
@@ -490,6 +493,7 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
             val dirName = when (mPath) {
                 FAVORITES -> getString(org.fossify.commons.R.string.favorites)
                 RECYCLE_BIN -> getString(org.fossify.commons.R.string.recycle_bin)
+                RECENT -> getString(R.string.recent)
                 config.OTGPath -> getString(org.fossify.commons.R.string.usb)
                 else -> getHumanizedFilename(mPath)
             }
@@ -803,8 +807,10 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
                         .filter { !newPaths.contains(it.path) }
                         .forEach {
                             if (mPath == FAVORITES && getDoesFilePathExist(it.path)) {
-                                favoritesDB.deleteFavoritePath(it.path)
-                                mediaDB.updateFavorite(it.path, false)
+                                // the fresh list can be filtered or incomplete, only drop the flag of real non-favorites
+                                if (!favoritesDB.isFavorite(it.path)) {
+                                    mediaDB.updateFavorite(it.path, false)
+                                }
                             } else {
                                 mediaDB.deleteMediumPath(it.path)
                             }
@@ -819,7 +825,7 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
 
     private fun isDirEmpty(): Boolean {
         return if (mMedia.isEmpty() && config.filterMedia > 0 && !mFavoritesOnly) {
-            if (mPath != FAVORITES && mPath != RECYCLE_BIN) {
+            if (mPath != FAVORITES && mPath != RECYCLE_BIN && mPath != RECENT) {
                 deleteDirectoryIfEmpty()
                 deleteDBDirectory()
             }
@@ -1087,6 +1093,7 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
             putExtra(SHOW_ALL, mShowAll)
             putExtra(SHOW_FAVORITES, mPath == FAVORITES)
             putExtra(SHOW_RECYCLE_BIN, mPath == RECYCLE_BIN)
+            putExtra(SHOW_RECENT, mPath == RECENT)
             putExtra(IS_FROM_GALLERY, true)
             startActivity(this)
         }
@@ -1155,11 +1162,13 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
             )
             toast(movingItems)
 
-            movePathsInRecycleBin(filtered.map { it.path } as ArrayList<String>) {
-                if (it) {
-                    deleteFilteredFiles(filtered)
-                } else {
-                    toast(org.fossify.commons.R.string.unknown_error_occurred)
+            trashWithSystemIfEnabled(filtered, onTrashed = { onFilesRemoved(it) }) { remaining ->
+                movePathsInRecycleBin(remaining.map { it.path } as ArrayList<String>) {
+                    if (it) {
+                        deleteFilteredFiles(remaining)
+                    } else {
+                        toast(org.fossify.commons.R.string.unknown_error_occurred)
+                    }
                 }
             }
         } else {
@@ -1175,6 +1184,18 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
 
     private fun shouldSkipAuthentication(): Boolean {
         return intent.getBooleanExtra(SKIP_AUTHENTICATION, false)
+    }
+
+    private fun onFilesRemoved(removed: ArrayList<FileDirItem>) {
+        val removedPaths = removed.map { it.path }.toHashSet()
+        mMedia.removeAll { removedPaths.contains((it as? Medium)?.path) }
+        if (mMedia.isEmpty() && !mFavoritesOnly) {
+            if (mPath != RECENT) {
+                deleteDirectoryIfEmpty()
+                deleteDBDirectory()
+            }
+            finish()
+        }
     }
 
     private fun deleteFilteredFiles(filtered: ArrayList<FileDirItem>) {

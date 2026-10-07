@@ -16,6 +16,7 @@ import org.fossify.gallery.adapters.MediaAdapter
 import org.fossify.gallery.asynctasks.GetMediaAsynctask
 import org.fossify.gallery.databinding.ActivitySearchBinding
 import org.fossify.gallery.extensions.*
+import org.fossify.gallery.extensions.trashWithSystemIfEnabled
 import org.fossify.gallery.helpers.GridSpacingItemDecoration
 import org.fossify.gallery.helpers.MediaFetcher
 import org.fossify.gallery.helpers.PATH
@@ -262,11 +263,16 @@ class SearchActivity : SimpleActivity(), MediaOperationsListener {
             val movingItems = resources.getQuantityString(org.fossify.commons.R.plurals.moving_items_into_bin, filtered.size, filtered.size)
             toast(movingItems)
 
-            movePathsInRecycleBin(filtered.map { it.path } as ArrayList<String>) {
-                if (it) {
-                    deleteFilteredFiles(filtered)
-                } else {
-                    toast(org.fossify.commons.R.string.unknown_error_occurred)
+            trashWithSystemIfEnabled(filtered, onTrashed = { trashed ->
+                val trashedPaths = trashed.map { it.path }.toHashSet()
+                mAllMedia.removeAll { trashedPaths.contains((it as? Medium)?.path) }
+            }) { remaining ->
+                movePathsInRecycleBin(remaining.map { it.path } as ArrayList<String>) {
+                    if (it) {
+                        deleteFilteredFiles(remaining)
+                    } else {
+                        toast(org.fossify.commons.R.string.unknown_error_occurred)
+                    }
                 }
             }
         } else {

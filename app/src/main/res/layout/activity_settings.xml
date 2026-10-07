@@ -227,6 +227,36 @@
             </RelativeLayout>
 
             <RelativeLayout
+                android:id="@+id/settings_show_recent_folder_holder"
+                style="@style/SettingsHolderSwitchStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <org.fossify.commons.views.MyMaterialSwitch
+                    android:id="@+id/settings_show_recent_folder"
+                    style="@style/SettingsSwitchStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/show_recent_folder" />
+
+            </RelativeLayout>
+
+            <RelativeLayout
+                android:id="@+id/settings_use_system_trash_holder"
+                style="@style/SettingsHolderSwitchStyle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content">
+
+                <org.fossify.commons.views.MyMaterialSwitch
+                    android:id="@+id/settings_use_system_trash"
+                    style="@style/SettingsSwitchStyle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/use_system_trash" />
+
+            </RelativeLayout>
+
+            <RelativeLayout
                 android:id="@+id/settings_search_all_files_holder"
                 style="@style/SettingsHolderSwitchStyle"
                 android:layout_width="match_parent"

@@ -619,6 +619,14 @@ class Config(context: Context) : BaseConfig(context) {
         get() = prefs.getBoolean(SHOW_PERMISSION_RATIONALE, false)
         set(showPermissionRationale) = prefs.edit().putBoolean(SHOW_PERMISSION_RATIONALE, showPermissionRationale).apply()
 
+    var showRecentFolder: Boolean
+        get() = prefs.getBoolean(SHOW_RECENT_FOLDER, true)
+        set(showRecentFolder) = prefs.edit().putBoolean(SHOW_RECENT_FOLDER, showRecentFolder).apply()
+
+    var useSystemTrash: Boolean
+        get() = prefs.getBoolean(USE_SYSTEM_TRASH, false)
+        set(useSystemTrash) = prefs.edit().putBoolean(USE_SYSTEM_TRASH, useSystemTrash).apply()
+
     var stripMetadataOnShare: Boolean
         get() = prefs.getBoolean(STRIP_METADATA_ON_SHARE, false)
         set(value) = prefs.edit().putBoolean(STRIP_METADATA_ON_SHARE, value).apply()

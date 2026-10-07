@@ -1140,3 +1140,82 @@ private fun isSupportedForFavorite(contentResolver: ContentResolver, uri: Uri): 
         false
     }
 }
+
+fun Activity.shouldUseSystemTrash(): Boolean {
+    return isRPlus() && config.useSystemTrash && Environment.isExternalStorageManager()
+}
+
+/**
+ * Sends [items] to the system trash when that is enabled, the system then removes them after a while on its own.
+ * [onTrashed] gets the items which are in the trash now, [recycle] gets everything that has to go through the app's own Recycle Bin.
+ */
+fun BaseSimpleActivity.trashWithSystemIfEnabled(
+    items: ArrayList<FileDirItem>,
+    onTrashed: (trashed: ArrayList<FileDirItem>) -> Unit,
+    recycle: (remaining: ArrayList<FileDirItem>) -> Unit
+) {
+    if (!shouldUseSystemTrash()) {
+        recycle(items)
+        return
+    }
+
+    ensureBackgroundThread {
+        val trashed = ArrayList<FileDirItem>()
+        val remaining = ArrayList<FileDirItem>()
+        items.forEach { item ->
+            if (isRPlus() && movePathInSystemTrash(item.path)) {
+                trashed.add(item)
+            } else {
+                remaining.add(item)
+            }
+        }
+
+        runOnUiThread {
+            if (trashed.isNotEmpty()) {
+                onTrashed(trashed)
+            }
+
+            if (remaining.isNotEmpty()) {
+                recycle(remaining)
+            }
+        }
+    }
+}
+
+@RequiresApi(Build.VERSION_CODES.R)
+private fun Activity.movePathInSystemTrash(path: String): Boolean {
+    return try {
+        val filesUri = Files.getContentUri("external")
+        val projection = arrayOf(Files.FileColumns._ID, Files.FileColumns.MEDIA_TYPE)
+        val selection = "${Files.FileColumns.DATA} = ?"
+        var mediaUri: Uri? = null
+        contentResolver.query(filesUri, projection, selection, arrayOf(path), null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val id = cursor.getLong(0)
+                val baseUri = when (cursor.getInt(1)) {
+                    Files.FileColumns.MEDIA_TYPE_IMAGE -> Images.Media.EXTERNAL_CONTENT_URI
+                    Files.FileColumns.MEDIA_TYPE_VIDEO -> MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+                    else -> null
+                }
+
+                if (baseUri != null) {
+                    mediaUri = Uri.withAppendedPath(baseUri, id.toString())
+                }
+            }
+        }
+
+        val uri = mediaUri ?: return false
+        val values = ContentValues().apply {
+            put(MediaStore.MediaColumns.IS_TRASHED, 1)
+        }
+
+        if (contentResolver.update(uri, values, null, null) > 0) {
+            deleteDBPath(path)
+            true
+        } else {
+            false
+        }
+    } catch (ignored: Exception) {
+        false
+    }
+}

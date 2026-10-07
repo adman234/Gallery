@@ -23,6 +23,9 @@ interface MediumDao {
     @Query("SELECT filename, full_path, parent_path, last_modified, date_taken, size, type, video_duration, is_favorite, deleted_ts, media_store_id FROM media WHERE deleted_ts < :timestmap AND deleted_ts != 0")
     fun getOldRecycleBinItems(timestmap: Long): List<Medium>
 
+    @Query("SELECT filename, full_path, parent_path, last_modified, date_taken, size, type, video_duration, is_favorite, deleted_ts, media_store_id FROM media WHERE deleted_ts = 0 ORDER BY last_modified DESC LIMIT :limit")
+    fun getRecentMedia(limit: Int): List<Medium>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     fun insert(medium: Medium)
 
