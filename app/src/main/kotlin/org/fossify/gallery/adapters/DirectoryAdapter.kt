@@ -818,7 +818,10 @@ class DirectoryAdapter(
             dirs = directories
             fillLockedFolders()
             notifyDataSetChanged()
-            finishActMode()
+            val validKeys = dirs.map { it.path.hashCode() }.toHashSet()
+            if (selectedKeys.isEmpty() || !validKeys.containsAll(selectedKeys)) {
+                finishActMode()
+            }
         }
     }
 

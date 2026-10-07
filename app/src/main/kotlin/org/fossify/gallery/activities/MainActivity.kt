@@ -11,6 +11,7 @@ import android.provider.MediaStore.Video
 import android.view.ViewGroup
 import android.widget.RelativeLayout
 import android.widget.Toast
+import androidx.lifecycle.Lifecycle
 import androidx.recyclerview.widget.RecyclerView
 import org.fossify.commons.dialogs.CreateNewFolderDialog
 import org.fossify.commons.dialogs.FilePickerDialog
@@ -126,6 +127,7 @@ import org.fossify.gallery.helpers.LOCATION_INTERNAL
 import org.fossify.gallery.helpers.MAX_COLUMN_COUNT
 import org.fossify.gallery.helpers.MONTH_MILLISECONDS
 import org.fossify.gallery.helpers.MediaFetcher
+import org.fossify.gallery.helpers.MediaStoreDelta
 import org.fossify.gallery.helpers.PICKED_PATHS
 import org.fossify.gallery.helpers.RECYCLE_BIN
 import org.fossify.gallery.helpers.SET_WALLPAPER_INTENT
@@ -149,6 +151,7 @@ import java.io.FileInputStream
 import java.io.FileNotFoundException
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.concurrent.atomic.AtomicInteger
 
 class MainActivity : SimpleActivity(), DirectoryOperationsListener {
     override var isSearchBarEnabled = true
@@ -170,6 +173,7 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
     private var mIsGettingDirs = false
     private var mLoadedInitialPhotos = false
     private var mShouldStopFetching = false
+    private val mScanId = AtomicInteger()
     private var mWasDefaultFolderChecked = false
     private var mWasMediaManagementPromptShown = false
     private var mLatestMediaId = 0L
@@ -632,9 +636,26 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
         val getImages = mIsPickImageIntent || mIsGetImageContentIntent
         val getVideos = mIsPickVideoIntent || mIsGetVideoContentIntent
 
-        getCachedDirectories(getVideos && !getImages, getImages && !getVideos) {
-            gotDirectories(addTempFolderIfNeeded(it))
+        ensureBackgroundThread {
+            // cache whatever was added since the last check first, so new media shows up together with the cached folders
+            MediaStoreDelta.apply(applicationContext)
+            getCachedDirectories(getVideos && !getImages, getImages && !getVideos) {
+                gotDirectories(addTempFolderIfNeeded(it))
+            }
         }
+    }
+
+    override fun onNewMediaCached(changedFolders: Set<String>) {
+        // while paused the cache is already up to date, onResume shows it
+        val isResumed = lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)
+        if (!isResumed || config.showAll || binding.mainMenu.isSearchOpen) {
+            return
+        }
+
+        // show the cached folders again and restart the background recheck, it would overwrite them with stale data otherwise
+        mIsGettingDirs = false
+        getDirectories()
+        setupLatestMediaId()
     }
 
     private fun launchSearchActivity() {
@@ -1096,6 +1117,7 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
     private fun gotDirectories(newDirs: ArrayList<Directory>) {
         mIsGettingDirs = false
         mShouldStopFetching = false
+        val scanId = mScanId.incrementAndGet()
 
         // if hidden item showing is disabled but all Favorite items are hidden, hide the Favorites folder
         if (!config.shouldShowHidden) {
@@ -1180,7 +1202,7 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
         )
         try {
             for (directory in dirs) {
-                if (mShouldStopFetching || isDestroyed || isFinishing) {
+                if (mShouldStopFetching || scanId != mScanId.get() || isDestroyed || isFinishing) {
                     return
                 }
 
@@ -1305,7 +1327,7 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
 
         // check the remaining folders which were not cached at all yet
         for (folder in foldersToScan) {
-            if (mShouldStopFetching || isDestroyed || isFinishing) {
+            if (mShouldStopFetching || scanId != mScanId.get() || isDestroyed || isFinishing) {
                 return
             }
 

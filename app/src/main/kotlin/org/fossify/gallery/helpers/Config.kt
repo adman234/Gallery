@@ -489,6 +489,14 @@ class Config(context: Context) : BaseConfig(context) {
         get() = prefs.getLong(LAST_BIN_CHECK, 0L)
         set(lastBinCheck) = prefs.edit().putLong(LAST_BIN_CHECK, lastBinCheck).apply()
 
+    var lastMediaStoreGeneration: Long
+        get() = prefs.getLong(LAST_MEDIA_STORE_GENERATION, -1L)
+        set(lastMediaStoreGeneration) = prefs.edit().putLong(LAST_MEDIA_STORE_GENERATION, lastMediaStoreGeneration).apply()
+
+    var lastMediaStoreCheck: Long
+        get() = prefs.getLong(LAST_MEDIA_STORE_CHECK, 0L)
+        set(lastMediaStoreCheck) = prefs.edit().putLong(LAST_MEDIA_STORE_CHECK, lastMediaStoreCheck).apply()
+
     var showHighestQuality: Boolean
         get() = prefs.getBoolean(SHOW_HIGHEST_QUALITY, false)
         set(showHighestQuality) = prefs.edit().putBoolean(SHOW_HIGHEST_QUALITY, showHighestQuality).apply()

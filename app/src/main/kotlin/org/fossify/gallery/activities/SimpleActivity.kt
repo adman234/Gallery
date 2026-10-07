@@ -2,6 +2,8 @@ package org.fossify.gallery.activities
 
 import android.database.ContentObserver
 import android.net.Uri
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore.Images
 import android.provider.MediaStore.Video
 import android.view.WindowManager
@@ -13,27 +15,42 @@ import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.commons.helpers.isPiePlus
 import org.fossify.gallery.R
 import org.fossify.gallery.dialogs.StoragePermissionRequiredDialog
-import org.fossify.gallery.extensions.addPathToDB
 import org.fossify.gallery.extensions.config
-import org.fossify.gallery.extensions.updateDirectoryPath
+import org.fossify.gallery.helpers.MediaStoreDelta
 import org.fossify.gallery.helpers.getPermissionsToRequest
 
 open class SimpleActivity : BaseSimpleActivity() {
+    companion object {
+        private const val MEDIA_CHANGE_DEBOUNCE = 300L
+    }
 
     private var dialog: AlertDialog? = null
 
+    private val mediaChangeHandler = Handler(Looper.getMainLooper())
     private val observer = object : ContentObserver(null) {
         override fun onChange(selfChange: Boolean, uri: Uri?) {
             super.onChange(selfChange, uri)
-            if (uri != null) {
-                val path = getRealPathFromURI(uri)
-                if (path != null) {
-                    updateDirectoryPath(path.getParentPath())
-                    addPathToDB(path)
+            // a single capture fires several change events, wait for them to settle
+            mediaChangeHandler.removeCallbacksAndMessages(null)
+            mediaChangeHandler.postDelayed({ checkNewMedia() }, MEDIA_CHANGE_DEBOUNCE)
+        }
+    }
+
+    // caches media added since the last check and lets the activity show them right away
+    protected fun checkNewMedia() {
+        ensureBackgroundThread {
+            val changedFolders = MediaStoreDelta.apply(applicationContext)
+            if (changedFolders.isNotEmpty()) {
+                runOnUiThread {
+                    if (!isDestroyed && !isFinishing) {
+                        onNewMediaCached(changedFolders)
+                    }
                 }
             }
         }
     }
+
+    protected open fun onNewMediaCached(changedFolders: Set<String>) {}
 
     override fun getAppIconIDs() = arrayListOf(
         R.mipmap.ic_launcher_red,
@@ -86,6 +103,7 @@ open class SimpleActivity : BaseSimpleActivity() {
     protected fun unregisterFileUpdateListener() {
         try {
             contentResolver.unregisterContentObserver(observer)
+            mediaChangeHandler.removeCallbacksAndMessages(null)
         } catch (ignored: Exception) {
         }
     }

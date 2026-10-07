@@ -631,7 +631,10 @@ class MediaAdapter(
             currentMediaHash = thumbnailItems.hashCode()
             media = thumbnailItems
             notifyDataSetChanged()
-            finishActMode()
+            val validKeys = media.mapNotNull { (it as? Medium)?.path?.hashCode() }.toHashSet()
+            if (selectedKeys.isEmpty() || !validKeys.containsAll(selectedKeys)) {
+                finishActMode()
+            }
         }
     }
 

@@ -94,6 +94,7 @@ import org.fossify.gallery.helpers.GridSpacingItemDecoration
 import org.fossify.gallery.helpers.IS_IN_RECYCLE_BIN
 import org.fossify.gallery.helpers.MAX_COLUMN_COUNT
 import org.fossify.gallery.helpers.MediaFetcher
+import org.fossify.gallery.helpers.MediaStoreDelta
 import org.fossify.gallery.helpers.PATH
 import org.fossify.gallery.helpers.PICKED_PATHS
 import org.fossify.gallery.helpers.RECYCLE_BIN
@@ -180,9 +181,7 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
             padBottomImeAndSystem = listOf(binding.mediaGrid)
         )
 
-        if (mShowAll) {
-            registerFileUpdateListener()
-        }
+        registerFileUpdateListener()
 
         binding.mediaEmptyTextPlaceholder2.setOnClickListener {
             showFilterMediaDialog()
@@ -298,9 +297,10 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
             config.temporarilyShowHidden = false
             config.tempSkipDeleteConfirmation = false
             config.tempSkipRecycleBin = false
-            unregisterFileUpdateListener()
             GalleryDatabase.destroyInstance()
         }
+
+        unregisterFileUpdateListener()
 
         mTempShowHiddenHandler.removeCallbacksAndMessages(null)
     }
@@ -659,25 +659,48 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
 
         mIsGettingMedia = true
         if (mLoadedInitialPhotos) {
+            checkNewMedia()
             startAsyncTask()
         } else {
+            ensureBackgroundThread {
+                MediaStoreDelta.apply(applicationContext)
+                getCachedMedia(
+                    mPath,
+                    mIsGetVideoIntent && !mIsGetImageIntent,
+                    mIsGetImageIntent && !mIsGetVideoIntent
+                ) {
+                    if (it.isEmpty()) {
+                        runOnUiThread {
+                            binding.mediaRefreshLayout.isRefreshing = true
+                        }
+                    } else {
+                        gotMedia(it, true)
+                    }
+                    startAsyncTask()
+                }
+            }
+        }
+
+        mLoadedInitialPhotos = true
+    }
+
+    override fun onNewMediaCached(changedFolders: Set<String>) {
+        val isRandomSorting = config.getFolderSorting(mPath) and SORT_BY_RANDOM != 0
+        if (isRandomSorting || mLastSearchedText.isNotEmpty()) {
+            return
+        }
+
+        if (mShowAll || changedFolders.any { it.equals(mPath, true) }) {
             getCachedMedia(
                 mPath,
                 mIsGetVideoIntent && !mIsGetImageIntent,
                 mIsGetImageIntent && !mIsGetVideoIntent
             ) {
-                if (it.isEmpty()) {
-                    runOnUiThread {
-                        binding.mediaRefreshLayout.isRefreshing = true
-                    }
-                } else {
+                if (it.isNotEmpty()) {
                     gotMedia(it, true)
                 }
-                startAsyncTask()
             }
         }
-
-        mLoadedInitialPhotos = true
     }
 
     private fun startAsyncTask() {
