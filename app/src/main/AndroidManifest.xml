@@ -163,6 +163,12 @@
             android:theme="@style/TranslucentTheme" />
 
         <activity
+            android:name=".activities.PanoramaPhotoActivity"
+            android:configChanges="orientation|keyboardHidden|screenSize"
+            android:exported="false"
+            android:theme="@style/TranslucentTheme" />
+
+        <activity
             android:name=".activities.VideoPlayerActivity"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:exported="false"

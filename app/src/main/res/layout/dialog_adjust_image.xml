@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/adjust_holder"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="@dimen/activity_margin"
+    android:paddingTop="@dimen/activity_margin"
+    android:paddingEnd="@dimen/activity_margin">
+
+    <org.fossify.commons.views.MyTextView
+        android:id="@+id/adjust_brightness_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/brightness" />
+
+    <org.fossify.commons.views.MySeekBar
+        android:id="@+id/adjust_brightness"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="@dimen/medium_margin"
+        android:paddingBottom="@dimen/medium_margin" />
+
+    <org.fossify.commons.views.MyTextView
+        android:id="@+id/adjust_contrast_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/medium_margin"
+        android:text="@string/contrast" />
+
+    <org.fossify.commons.views.MySeekBar
+        android:id="@+id/adjust_contrast"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="@dimen/medium_margin"
+        android:paddingBottom="@dimen/medium_margin" />
+
+    <org.fossify.commons.views.MyTextView
+        android:id="@+id/adjust_saturation_label"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/medium_margin"
+        android:text="@string/saturation" />
+
+    <org.fossify.commons.views.MySeekBar
+        android:id="@+id/adjust_saturation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingTop="@dimen/medium_margin"
+        android:paddingBottom="@dimen/medium_margin" />
+
+</LinearLayout>

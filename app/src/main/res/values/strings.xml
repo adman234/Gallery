@@ -320,4 +320,8 @@
     <string name="video_end">End</string>
     <string name="resulting_length">Resulting length</string>
     <string name="remove_audio">Remove audio</string>
+    <string name="adjust">Adjust</string>
+    <string name="contrast">Contrast</string>
+    <string name="saturation">Saturation</string>
+    <string name="reset_adjustments">Reset</string>
 </resources>

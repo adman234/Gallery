@@ -7,6 +7,10 @@
         android:title="@string/save_as"
         app:showAsAction="ifRoom" />
     <item
+        android:id="@+id/adjust"
+        android:title="@string/adjust"
+        app:showAsAction="never" />
+    <item
         android:id="@+id/overwrite_original"
         android:icon="@drawable/ic_check_vector"
         android:title="@string/overwrite_original"

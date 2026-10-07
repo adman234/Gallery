@@ -3,6 +3,7 @@
 package org.fossify.gallery.fragments
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -87,6 +88,7 @@ import org.fossify.commons.helpers.ensureBackgroundThread
 import org.fossify.commons.helpers.isRPlus
 import org.fossify.gallery.R
 import org.fossify.gallery.activities.BaseViewerActivity
+import org.fossify.gallery.activities.PanoramaPhotoActivity
 import org.fossify.gallery.activities.PhotoActivity
 import org.fossify.gallery.activities.PhotoVideoActivity
 import org.fossify.gallery.activities.ViewPagerActivity
@@ -105,6 +107,7 @@ import org.fossify.gallery.helpers.MAX_ZOOM_EQUALITY_TOLERANCE
 import org.fossify.gallery.helpers.MEDIUM
 import org.fossify.gallery.helpers.MyGlideImageDecoder
 import org.fossify.gallery.helpers.NORMAL_TILE_DPI
+import org.fossify.gallery.helpers.PATH
 import org.fossify.gallery.helpers.PicassoRegionDecoder
 import org.fossify.gallery.helpers.SHOULD_INIT_FRAGMENT
 import org.fossify.gallery.helpers.SdrToneMappingRenderersFactory
@@ -287,6 +290,7 @@ class PhotoFragment : ViewPagerFragment() {
         if (mMedium.isImage() && (mMedium.name.endsWith(".jpg", true) || mMedium.name.endsWith(".jpeg", true))) {
             ensureBackgroundThread {
                 checkIfMotionPhoto()
+                checkIfPanorama()
             }
         }
 
@@ -771,7 +775,11 @@ class PhotoFragment : ViewPagerFragment() {
     private fun getFilePathToShow() = if (mMedium.isPortrait()) mCurrentPortraitPhotoPath else getPathToLoad(mMedium)
 
     private fun openPanorama() {
-        TODO("Panorama is not yet implemented.")
+        val context = context ?: return
+        Intent(context, PanoramaPhotoActivity::class.java).apply {
+            putExtra(PATH, mMedium.path)
+            startActivity(this)
+        }
     }
 
     private fun scheduleZoomableView() {
@@ -871,9 +879,10 @@ class PhotoFragment : ViewPagerFragment() {
     }
 
     private fun checkIfPanorama() {
+        val appContext = context?.applicationContext ?: return
         mIsPanorama = try {
             if (mMedium.path.startsWith("content:/")) {
-                requireContext().contentResolver.openInputStream(Uri.parse(mMedium.path))
+                appContext.contentResolver.openInputStream(Uri.parse(mMedium.path))
             } else {
                 File(mMedium.path).inputStream()
             }.use {
@@ -890,6 +899,10 @@ class PhotoFragment : ViewPagerFragment() {
         }
 
         activity?.runOnUiThread {
+            if (context == null || !isAdded || view == null) {
+                return@runOnUiThread
+            }
+
             binding.panoramaOutline.beVisibleIf(mIsPanorama)
             if (mIsFullscreen) {
                 binding.panoramaOutline.alpha = 0f

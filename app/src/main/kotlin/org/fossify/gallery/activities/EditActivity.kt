@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.provider.MediaStore
+import android.widget.ImageView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.graphics.scale
 import androidx.core.net.toUri
@@ -57,6 +58,7 @@ import org.fossify.gallery.BuildConfig
 import org.fossify.gallery.R
 import org.fossify.gallery.adapters.FiltersAdapter
 import org.fossify.gallery.databinding.ActivityEditBinding
+import org.fossify.gallery.dialogs.AdjustImageDialog
 import org.fossify.gallery.dialogs.OtherAspectRatioDialog
 import org.fossify.gallery.dialogs.ResizeDialog
 import org.fossify.gallery.dialogs.SaveAsDialog
@@ -84,6 +86,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStream
 import kotlin.math.max
+import org.fossify.gallery.models.ImageAdjustments
 
 class EditActivity : BaseCropActivity() {
     companion object {
@@ -116,6 +119,7 @@ class EditActivity : BaseCropActivity() {
     private var currAspectRatio = ASPECT_RATIO_FREE
     private var isCropIntent = false
     private var isEditingWithThirdParty = false
+    private var adjustments = ImageAdjustments()
     private var isSharingBitmap = false
     private var wasDrawCanvasPositioned = false
     private var oldExif: ExifInterface? = null
@@ -175,6 +179,7 @@ class EditActivity : BaseCropActivity() {
             when (menuItem.itemId) {
                 R.id.save_as -> startSaveFlow(overwrite = false)
                 R.id.overwrite_original -> startSaveFlow(overwrite = true)
+                R.id.adjust -> showAdjustDialog()
                 R.id.edit -> editWith()
                 R.id.share -> shareImage()
                 else -> return@setOnMenuItemClickListener false
@@ -486,7 +491,33 @@ class EditActivity : BaseCropActivity() {
         }
     }
 
-    private fun shareBitmap(bitmap: Bitmap) {
+    private fun showAdjustDialog() {
+        AdjustImageDialog(this, adjustments) {
+            adjustments = it
+            showAdjustmentsPreview()
+        }
+    }
+
+    // brightness, contrast and saturation are only previewed here, they get applied to the real image when saving
+    private fun showAdjustmentsPreview() {
+        val colorFilter = adjustments.getColorFilter()
+        binding.defaultImageView.colorFilter = colorFilter
+        for (i in 0 until binding.cropImageView.childCount) {
+            (binding.cropImageView.getChildAt(i) as? ImageView)?.colorFilter = colorFilter
+        }
+    }
+
+    private fun applyAdjustments(bitmap: Bitmap): Bitmap {
+        return try {
+            adjustments.applyTo(bitmap)
+        } catch (_: OutOfMemoryError) {
+            toast(org.fossify.commons.R.string.out_of_memory_error)
+            bitmap
+        }
+    }
+
+    private fun shareBitmap(unadjustedBitmap: Bitmap) {
+        val bitmap = applyAdjustments(unadjustedBitmap)
         writeBitmapToCache(saveUri, bitmap) {
             if (it != null) {
                 sharePathIntent(it, BuildConfig.APPLICATION_ID)
@@ -905,9 +936,10 @@ class EditActivity : BaseCropActivity() {
         binding.bottomEditorFilterActions.bottomActionsFilterList.beGone()
     }
 
-    private fun saveBitmapToPath(bitmap: Bitmap, path: String, showSavingToast: Boolean) {
+    private fun saveBitmapToPath(unadjustedBitmap: Bitmap, path: String, showSavingToast: Boolean) {
         try {
             ensureBackgroundThread {
+                val bitmap = applyAdjustments(unadjustedBitmap)
                 val file = File(path)
                 val fileDirItem = FileDirItem(path, path.getFilenameFromPath())
                 try {
@@ -950,7 +982,7 @@ class EditActivity : BaseCropActivity() {
     }
 
     private fun saveBitmapToContentUri(
-        bitmap: Bitmap,
+        unadjustedBitmap: Bitmap,
         uri: Uri,
         showSavingToast: Boolean,
         isCropCommit: Boolean
@@ -960,6 +992,7 @@ class EditActivity : BaseCropActivity() {
         }
 
         ensureBackgroundThread {
+            val bitmap = applyAdjustments(unadjustedBitmap)
             var out: OutputStream? = null
             try {
                 out = contentResolver.openOutputStream(uri, "wt")
