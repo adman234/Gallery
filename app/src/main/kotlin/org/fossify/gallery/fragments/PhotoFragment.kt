@@ -107,6 +107,7 @@ import org.fossify.gallery.helpers.MyGlideImageDecoder
 import org.fossify.gallery.helpers.NORMAL_TILE_DPI
 import org.fossify.gallery.helpers.PicassoRegionDecoder
 import org.fossify.gallery.helpers.SHOULD_INIT_FRAGMENT
+import org.fossify.gallery.helpers.SdrToneMappingRenderersFactory
 import org.fossify.gallery.helpers.WEIRD_TILE_DPI
 import org.fossify.gallery.models.Medium
 import org.fossify.gallery.svg.SvgSoftwareLayerSetter
@@ -966,7 +967,7 @@ class PhotoFragment : ViewPagerFragment() {
 
         val shouldLoop = context.config.loopMotionPhotos
 
-        mMotionPhotoPlayer = ExoPlayer.Builder(context)
+        mMotionPhotoPlayer = ExoPlayer.Builder(context, SdrToneMappingRenderersFactory(context))
             .setSeekParameters(SeekParameters.EXACT)
             .build()
             .apply {

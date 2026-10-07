@@ -90,6 +90,7 @@ import org.fossify.gallery.helpers.ROTATE_BY_DEVICE_ROTATION
 import org.fossify.gallery.helpers.ROTATE_BY_SYSTEM_SETTING
 import org.fossify.gallery.helpers.SHOW_NEXT_ITEM
 import org.fossify.gallery.helpers.SHOW_PREV_ITEM
+import org.fossify.gallery.helpers.SdrToneMappingRenderersFactory
 import org.fossify.gallery.helpers.VideoGestureCallbacks
 import org.fossify.gallery.helpers.VideoGestureHelper
 import org.fossify.gallery.interfaces.PlaybackSpeedListener
@@ -390,7 +391,7 @@ open class VideoPlayerActivity : BaseViewerActivity(), SeekBar.OnSeekBarChangeLi
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
 
-        mExoPlayer = ExoPlayer.Builder(this)
+        mExoPlayer = ExoPlayer.Builder(this, SdrToneMappingRenderersFactory(this))
             .setMediaSourceFactory(DefaultMediaSourceFactory(applicationContext))
             .setSeekParameters(SeekParameters.EXACT)
             .setLoadControl(loadControl)

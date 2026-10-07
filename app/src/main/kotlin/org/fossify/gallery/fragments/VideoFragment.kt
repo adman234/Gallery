@@ -84,6 +84,7 @@ import org.fossify.gallery.helpers.EXOPLAYER_MIN_BUFFER_MS
 import org.fossify.gallery.helpers.FAST_FORWARD_VIDEO_MS
 import org.fossify.gallery.helpers.MEDIUM
 import org.fossify.gallery.helpers.SHOULD_INIT_FRAGMENT
+import org.fossify.gallery.helpers.SdrToneMappingRenderersFactory
 import org.fossify.gallery.interfaces.PlaybackSpeedListener
 import org.fossify.gallery.models.Medium
 import org.fossify.gallery.views.MediaSideScroll
@@ -511,7 +512,7 @@ class VideoFragment : ViewPagerFragment(), TextureView.SurfaceTextureListener,
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
 
-        mExoPlayer = ExoPlayer.Builder(requireContext())
+        mExoPlayer = ExoPlayer.Builder(requireContext(), SdrToneMappingRenderersFactory(requireContext()))
             .setMediaSourceFactory(DefaultMediaSourceFactory(requireContext()))
             .setSeekParameters(SeekParameters.EXACT)
             .setLoadControl(loadControl)
