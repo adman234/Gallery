@@ -725,7 +725,7 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
             return
         }
 
-        if (mShowAll || changedFolders.any { it.equals(mPath, true) }) {
+        if (mShowAll || mPath == RECENT || changedFolders.any { it.equals(mPath, true) }) {
             getCachedMedia(
                 mPath,
                 mIsGetVideoIntent && !mIsGetImageIntent,

@@ -131,6 +131,7 @@ import org.fossify.gallery.helpers.MONTH_MILLISECONDS
 import org.fossify.gallery.helpers.MediaFetcher
 import org.fossify.gallery.helpers.MediaStoreDelta
 import org.fossify.gallery.helpers.PICKED_PATHS
+import org.fossify.gallery.helpers.RECENT
 import org.fossify.gallery.helpers.RECYCLE_BIN
 import org.fossify.gallery.helpers.SET_WALLPAPER_INTENT
 import org.fossify.gallery.helpers.SHOW_ALL
@@ -1553,7 +1554,7 @@ class MainActivity : SimpleActivity(), DirectoryOperationsListener {
             ) {
                 val clickedDir = it as Directory
                 val path = clickedDir.path
-                if (clickedDir.subfoldersCount == 1 || !config.groupDirectSubfolders) {
+                if (path == RECENT || clickedDir.subfoldersCount == 1 || !config.groupDirectSubfolders) {
                     if (path != config.tempFolderPath) {
                         itemClicked(path)
                     }
