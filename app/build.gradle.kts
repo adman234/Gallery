@@ -31,7 +31,9 @@ android {
     compileSdk = project.libs.versions.app.build.compileSDKVersion.get().toInt()
 
     defaultConfig {
-        applicationId = project.property("APP_ID").toString()
+        applicationId = project.property("APPLICATION_ID").toString()
+        // launcher aliases are looked up by the commons library as "<applicationId>.activities.SplashActivity.<Color>"
+        manifestPlaceholders["aliasPrefix"] = project.property("APPLICATION_ID").toString()
         minSdk = project.libs.versions.app.build.minimumSDK.get().toInt()
         targetSdk = project.libs.versions.app.build.targetSDK.get().toInt()
         versionName = project.property("VERSION_NAME").toString()
