@@ -189,6 +189,9 @@ class ViewPagerActivity : BaseViewerActivity(), ViewPager.OnPageChangeListener, 
     companion object {
         private const val REQUEST_VIEW_VIDEO = 1
         private const val SAVED_PATH = "current_path"
+
+        // lets the thumbnail grid scroll back to the item that was shown last
+        var lastViewedPath = ""
     }
 
     private var mPath = ""
@@ -263,6 +266,7 @@ class ViewPagerActivity : BaseViewerActivity(), ViewPager.OnPageChangeListener, 
     override fun onPause() {
         super.onPause()
         stopSlideshow()
+        lastViewedPath = getCurrentPath()
     }
 
     override fun onDestroy() {
@@ -1377,8 +1381,9 @@ class ViewPagerActivity : BaseViewerActivity(), ViewPager.OnPageChangeListener, 
     }
 
     private fun gotMedia(thumbnailItems: ArrayList<ThumbnailItem>, ignorePlayingVideos: Boolean = false, refetchViewPagerPosition: Boolean = false) {
+        val favoritesOnly = MediaActivity.favoritesOnly && !isExternalIntent()
         val media = thumbnailItems.asSequence().filter {
-            it is Medium && !mIgnoredPaths.contains(it.path)
+            it is Medium && !mIgnoredPaths.contains(it.path) && (!favoritesOnly || it.isFavorite)
         }.map { it as Medium }.toMutableList() as ArrayList<Medium>
 
         if (isDirEmpty(media) || media.hashCode() == mPrevHashcode) {
@@ -1395,12 +1400,19 @@ class ViewPagerActivity : BaseViewerActivity(), ViewPager.OnPageChangeListener, 
 
     private fun refreshUI(media: ArrayList<Medium>, refetchViewPagerPosition: Boolean) {
         mPrevHashcode = media.hashCode()
+        val shownPath = mMediaFiles.getOrNull(mPos)?.path
         mMediaFiles = media
 
         if (refetchViewPagerPosition || mPos == -1) {
             mPos = getPositionInList(media)
             if (mPos == -1) {
                 min(mPos, media.lastIndex)
+            }
+        } else if (shownPath != null) {
+            // the refreshed list can have items added or removed before the shown one, stay on the same file
+            val newPos = media.indexOfFirst { it.path == shownPath }
+            if (newPos != -1) {
+                mPos = newPos
             }
         }
 

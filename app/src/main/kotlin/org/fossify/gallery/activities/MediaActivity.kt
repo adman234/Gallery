@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.widget.RelativeLayout
 import androidx.core.net.toUri
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.bumptech.glide.request.RequestOptions
@@ -151,7 +152,15 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
 
     companion object {
         var mMedia = ArrayList<ThumbnailItem>()
+
+        // true while a folder is showing its favorites only, the fullscreen viewer follows it
+        var favoritesOnly = false
+
+        // first visible item per folder, kept while the app is running
+        private val scrollPositions = HashMap<String, Int>()
     }
+
+    private var mFavoritesOnly = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -235,6 +244,7 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
         }
 
         refreshMenuItems()
+        scrollToLastViewedItem()
 
         binding.mediaFastscroller.updateColors(primaryColor)
         binding.mediaRefreshLayout.isEnabled = config.enablePullToRefresh
@@ -267,6 +277,12 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
 
     override fun onPause() {
         super.onPause()
+        (binding.mediaGrid.layoutManager as? LinearLayoutManager)?.findFirstVisibleItemPosition()?.let {
+            if (it != RecyclerView.NO_POSITION) {
+                scrollPositions[mPath] = it
+            }
+        }
+
         mIsGettingMedia = false
         binding.mediaRefreshLayout.isRefreshing = false
         storeStateVariables()
@@ -298,6 +314,10 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
             config.tempSkipDeleteConfirmation = false
             config.tempSkipRecycleBin = false
             GalleryDatabase.destroyInstance()
+        }
+
+        if (mFavoritesOnly) {
+            favoritesOnly = false
         }
 
         unregisterFileUpdateListener()
@@ -346,6 +366,11 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
                 !mShowAll && mPath != RECYCLE_BIN && mPath != FAVORITES
             findItem(R.id.open_recycle_bin).isVisible = config.useRecycleBin && mPath != RECYCLE_BIN
 
+            findItem(R.id.toggle_favorites_only).apply {
+                isVisible = mPath != RECYCLE_BIN && mPath != FAVORITES
+                setTitle(if (mFavoritesOnly) R.string.show_all_media else R.string.show_favorites_only)
+            }
+
             findItem(R.id.temporarily_show_hidden).isVisible = !config.shouldShowHidden
             findItem(R.id.stop_showing_hidden).isVisible =
                 (!isRPlus() || isExternalStorageManager()) && config.temporarilyShowHidden
@@ -384,6 +409,7 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
                 R.id.group -> showGroupByDialog()
                 R.id.create_new_folder -> createNewFolder()
                 R.id.open_recycle_bin -> openRecycleBin()
+                R.id.toggle_favorites_only -> toggleFavoritesOnly()
                 R.id.temporarily_show_hidden -> tryToggleTemporarilyShowHidden()
                 R.id.stop_showing_hidden -> tryToggleTemporarilyShowHidden()
                 R.id.column_count -> changeColumnCount()
@@ -526,6 +552,11 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
 
             setupLayoutManager()
             handleGridSpacing()
+            scrollPositions[mPath]?.let { position ->
+                if (position > 0 && position < mMedia.size) {
+                    (binding.mediaGrid.layoutManager as? LinearLayoutManager)?.scrollToPositionWithOffset(position, 0)
+                }
+            }
         } else if (mLastSearchedText.isEmpty()) {
             (currAdapter as MediaAdapter).updateMedia(mMedia)
             handleGridSpacing()
@@ -703,6 +734,53 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
         }
     }
 
+    private fun toggleFavoritesOnly() {
+        mFavoritesOnly = !mFavoritesOnly
+        favoritesOnly = mFavoritesOnly
+        refreshMenuItems()
+        mLoadedInitialPhotos = false
+        mIsGettingMedia = false
+        getMedia()
+    }
+
+    private fun filterFavorites(media: ArrayList<ThumbnailItem>): ArrayList<ThumbnailItem> {
+        val favorites = ArrayList<Medium>()
+        media.forEach {
+            if (it is Medium && it.isFavorite) {
+                favorites.add(it)
+            }
+        }
+
+        return MediaFetcher(applicationContext).groupMedia(favorites, if (mShowAll) SHOW_ALL else mPath)
+    }
+
+    // after closing the fullscreen view, make sure the item shown last is on screen
+    private fun scrollToLastViewedItem() {
+        val path = ViewPagerActivity.lastViewedPath
+        if (path.isEmpty()) {
+            return
+        }
+
+        ViewPagerActivity.lastViewedPath = ""
+        if (mLastSearchedText.isNotEmpty()) {
+            return
+        }
+
+        val index = mMedia.indexOfFirst { (it as? Medium)?.path == path }
+        val layoutManager = binding.mediaGrid.layoutManager as? LinearLayoutManager
+        if (index == -1 || layoutManager == null) {
+            return
+        }
+
+        binding.mediaGrid.post {
+            val first = layoutManager.findFirstCompletelyVisibleItemPosition()
+            val last = layoutManager.findLastCompletelyVisibleItemPosition()
+            if (first != RecyclerView.NO_POSITION && (index < first || index > last)) {
+                layoutManager.scrollToPositionWithOffset(index, binding.mediaGrid.height / 3)
+            }
+        }
+    }
+
     private fun startAsyncTask() {
         mCurrAsyncTask?.stopFetching()
         mCurrAsyncTask = GetMediaAsynctask(
@@ -740,7 +818,7 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
     }
 
     private fun isDirEmpty(): Boolean {
-        return if (mMedia.isEmpty() && config.filterMedia > 0) {
+        return if (mMedia.isEmpty() && config.filterMedia > 0 && !mFavoritesOnly) {
             if (mPath != FAVORITES && mPath != RECYCLE_BIN) {
                 deleteDirectoryIfEmpty()
                 deleteDBDirectory()
@@ -1025,7 +1103,8 @@ class MediaActivity : SimpleActivity(), MediaOperationsListener {
         )
     }
 
-    private fun gotMedia(media: ArrayList<ThumbnailItem>, isFromCache: Boolean) {
+    private fun gotMedia(allMedia: ArrayList<ThumbnailItem>, isFromCache: Boolean) {
+        val media = if (mFavoritesOnly) filterFavorites(allMedia) else allMedia
         mIsGettingMedia = false
         checkLastMediaChanged()
         mMedia = media

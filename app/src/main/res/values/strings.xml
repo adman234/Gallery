@@ -310,4 +310,6 @@
     <string name="motion_photo">Motion</string>
     <string name="export_motion_video">Export motion video</string>
     <string name="motion_video_not_found">No motion video found in this photo</string>
+    <string name="show_favorites_only">Show favorites only</string>
+    <string name="show_all_media">Show all media</string>
 </resources>
