@@ -954,7 +954,7 @@ class DirectoryAdapter(
                 dirPin.setImageDrawable(spinner)
                 dirPin.beVisible()
             } else {
-                dirPin.setImageResource(R.drawable.ic_pin_filled_vector)
+                dirPin.setImageResource(org.fossify.commons.R.drawable.ic_pin_filled_vector)
             }
             dirLocation.beVisibleIf(directory.location != LOCATION_INTERNAL)
             if (dirLocation.isVisible()) {
