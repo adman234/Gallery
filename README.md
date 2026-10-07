@@ -1,4 +1,6 @@
-# Fossify Gallery
+# Fossify Gallery (adman234 fork)
+
+> **This is a personal fork.** It installs next to the original app and adds faster refresh, motion photos, a video editor and more. See [FORK.md](FORK.md) for the differences and downloads. It is not affiliated with Fossify.
 
 <img alt="Logo" src="graphics/icon.webp" width="120" />
 
