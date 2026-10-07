@@ -897,8 +897,9 @@ class PhotoFragment : ViewPagerFragment() {
     }
 
     private fun checkIfMotionPhoto() {
+        val appContext = context?.applicationContext ?: return
         val info = try {
-            MotionPhotoHelper.detectMotionPhoto(requireContext(), mMedium.path, mMedium.name)
+            MotionPhotoHelper.detectMotionPhoto(appContext, mMedium.path, mMedium.name)
         } catch (e: Exception) {
             null
         }
@@ -907,7 +908,13 @@ class PhotoFragment : ViewPagerFragment() {
         mMotionPhotoInfo = info
 
         activity?.runOnUiThread {
-            if (mIsMotionPhoto && mIsFragmentVisible && requireContext().config.autoplayMotionPhotos) {
+            // the fragment can be gone by the time detection finishes
+            val context = context
+            if (context == null || !isAdded || view == null) {
+                return@runOnUiThread
+            }
+
+            if (mIsMotionPhoto && mIsFragmentVisible && context.config.autoplayMotionPhotos) {
                 playMotionPhotoVideo()
             } else {
                 binding.motionPhotoPlay.beVisibleIf(mIsMotionPhoto)
@@ -947,18 +954,19 @@ class PhotoFragment : ViewPagerFragment() {
     }
 
     private fun initMotionPhotoPlayer(surface: Surface, info: MotionPhotoInfo) {
-        if (activity == null) return
+        val context = context
+        if (activity == null || context == null) return
 
         val factory = MotionPhotoDataSourceFactory(
-            requireContext(), mMedium.path, info.videoOffsetFromStart, info.videoLength
+            context.applicationContext, mMedium.path, info.videoOffsetFromStart, info.videoLength
         )
 
         val mediaSource = ProgressiveMediaSource.Factory(factory)
             .createMediaSource(MediaItem.fromUri(Uri.fromFile(File(mMedium.path))))
 
-        val shouldLoop = requireContext().config.loopMotionPhotos
+        val shouldLoop = context.config.loopMotionPhotos
 
-        mMotionPhotoPlayer = ExoPlayer.Builder(requireContext())
+        mMotionPhotoPlayer = ExoPlayer.Builder(context)
             .setSeekParameters(SeekParameters.EXACT)
             .build()
             .apply {

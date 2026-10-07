@@ -78,6 +78,7 @@ import org.fossify.gallery.extensions.tryCopyMoveFilesTo
 import org.fossify.gallery.extensions.updateDBMediaPath
 import org.fossify.gallery.extensions.updateFavorite
 import org.fossify.gallery.extensions.updateFavoritePaths
+import org.fossify.gallery.helpers.MotionPhotoHelper
 import org.fossify.gallery.helpers.PATH
 import org.fossify.gallery.helpers.RECYCLE_BIN
 import org.fossify.gallery.helpers.ROUNDED_CORNERS_BIG
@@ -686,11 +687,13 @@ class MediaAdapter(
                 playPortraitOutline?.beVisibleIf(showFileTypes)
             }
 
-            if (showFileTypes && (medium.isGIF() || medium.isRaw() || medium.isSVG())) {
+            val isMotionPhoto = medium.isImage() && MotionPhotoHelper.isMotionPhotoName(medium.name)
+            if (showFileTypes && (medium.isGIF() || medium.isRaw() || medium.isSVG() || isMotionPhoto)) {
                 fileType?.setText(
-                    when (medium.type) {
-                        TYPE_GIFS -> R.string.gif
-                        TYPE_RAWS -> R.string.raw
+                    when {
+                        isMotionPhoto -> R.string.motion_photo
+                        medium.type == TYPE_GIFS -> R.string.gif
+                        medium.type == TYPE_RAWS -> R.string.raw
                         else -> R.string.svg
                     }
                 )

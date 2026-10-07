@@ -152,6 +152,7 @@ import org.fossify.gallery.helpers.GO_TO_PREV_ITEM
 import org.fossify.gallery.helpers.HIDE_SYSTEM_UI_DELAY
 import org.fossify.gallery.helpers.IS_VIEW_INTENT
 import org.fossify.gallery.helpers.MAX_PRINT_SIDE_SIZE
+import org.fossify.gallery.helpers.MotionPhotoHelper
 import org.fossify.gallery.helpers.PATH
 import org.fossify.gallery.helpers.PORTRAIT_PATH
 import org.fossify.gallery.helpers.RECYCLE_BIN
@@ -304,6 +305,8 @@ class ViewPagerActivity : BaseViewerActivity(), ViewPager.OnPageChangeListener, 
                     visibleBottomActions and BOTTOM_ACTION_MOVE == 0 && !currentMedium.getIsInRecycleBin()
                 findItem(R.id.menu_save_as).isVisible = rotationDegrees != 0
                 findItem(R.id.menu_print).isVisible = currentMedium.isImage() || currentMedium.isRaw()
+                findItem(R.id.menu_export_motion_video).isVisible =
+                    currentMedium.isImage() && MotionPhotoHelper.isMotionPhotoName(currentMedium.name)
                 findItem(R.id.menu_resize).isVisible = visibleBottomActions and BOTTOM_ACTION_RESIZE == 0 && currentMedium.isImage()
                 findItem(R.id.menu_hide).isVisible =
                     (!isRPlus() || isExternalStorageManager()) && !currentMedium.isHidden() && visibleBottomActions and BOTTOM_ACTION_TOGGLE_VISIBILITY == 0 && !currentMedium.getIsInRecycleBin()
@@ -376,6 +379,7 @@ class ViewPagerActivity : BaseViewerActivity(), ViewPager.OnPageChangeListener, 
                 R.id.menu_save_as -> saveImageAs()
                 R.id.menu_create_shortcut -> createShortcut()
                 R.id.menu_resize -> resizeImage()
+                R.id.menu_export_motion_video -> exportMotionVideo()
                 R.id.menu_settings -> launchSettings()
                 R.id.menu_copy_to_clipboard -> copyImageToClipboard()
                 else -> return@setOnMenuItemClickListener false
@@ -1158,6 +1162,39 @@ class ViewPagerActivity : BaseViewerActivity(), ViewPager.OnPageChangeListener, 
     private fun restoreFile() {
         restoreRecycleBinPath(getCurrentPath()) {
             refreshViewPager()
+        }
+    }
+
+    private fun exportMotionVideo() {
+        val medium = getCurrentMedium() ?: return
+        ensureBackgroundThread {
+            val info = try {
+                MotionPhotoHelper.detectMotionPhoto(applicationContext, medium.path, medium.name)
+            } catch (ignored: Exception) {
+                null
+            }
+
+            if (info == null) {
+                toast(R.string.motion_video_not_found)
+                return@ensureBackgroundThread
+            }
+
+            val baseName = medium.name.substringBeforeLast('.').removeSuffix(".MP")
+            var destination = File(medium.parentPath, "$baseName.mp4")
+            var index = 1
+            while (destination.exists()) {
+                destination = File(medium.parentPath, "${baseName}_$index.mp4")
+                index++
+            }
+
+            if (MotionPhotoHelper.exportVideo(applicationContext, medium.path, info, destination)) {
+                rescanPaths(arrayListOf(destination.absolutePath)) {
+                    toast(org.fossify.commons.R.string.file_saved)
+                }
+            } else {
+                destination.delete()
+                toast(org.fossify.commons.R.string.unknown_error_occurred)
+            }
         }
     }
 

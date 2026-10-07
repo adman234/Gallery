@@ -21,6 +21,8 @@ object MotionPhotoHelper {
     private const val MAX_BOX_SIZE = 64
 
     private val FTYP_MARKER = "ftyp".toByteArray(Charsets.US_ASCII)
+    private val MICRO_VIDEO_OFFSET_REGEX = Regex("MicroVideoOffset(?:=\"|>)(\\d+)")
+    private val ITEM_LENGTH_REGEX = Regex("Item:Length=\"(\\d+)\"")
 
     fun detectMotionPhoto(context: Context, path: String, name: String): MotionPhotoInfo? {
         if (!name.endsWith(".jpg", true) && !name.endsWith(".jpeg", true)) {
@@ -38,16 +40,114 @@ object MotionPhotoHelper {
             }
         } catch (_: OutOfMemoryError) {
             null
+        } catch (_: Exception) {
+            null
         }
 
         if (xmpXml == null) return null
 
+        // MotionPhoto is the current format, MicroVideo the legacy one used by older Pixels and some other vendors
         val isMotionPhoto = xmpXml.contains("GCamera:MotionPhoto=\"1\"", true) ||
-            xmpXml.contains("<GCamera:MotionPhoto>1</GCamera:MotionPhoto>", true)
+            xmpXml.contains("<GCamera:MotionPhoto>1</GCamera:MotionPhoto>", true) ||
+            xmpXml.contains("GCamera:MicroVideo=\"1\"", true) ||
+            xmpXml.contains("<GCamera:MicroVideo>1</GCamera:MicroVideo>", true)
 
         if (!isMotionPhoto) return null
 
-        return findVideoOffset(context, path)
+        return findVideoFromXmpLength(context, path, xmpXml) ?: findVideoOffset(context, path)
+    }
+
+    fun isMotionPhotoName(name: String): Boolean {
+        return name.contains(".MP.", false) || name.startsWith("MVIMG_", true)
+    }
+
+    // the metadata says how long the appended video is, which avoids scanning and works for videos of any size
+    private fun findVideoFromXmpLength(context: Context, path: String, xmpXml: String): MotionPhotoInfo? {
+        val videoLength = getXmpVideoLength(xmpXml) ?: return null
+        return try {
+            val fileSize = getFileSize(context, path)
+            val offset = fileSize - videoLength
+            if (videoLength < MIN_FILE_SIZE || offset <= 0) {
+                return null
+            }
+
+            val header = readBytes(context, path, offset, MIN_FILE_SIZE.toInt()) ?: return null
+            if (matchesFtypMarker(header, FTYP_MARKER.size)) {
+                MotionPhotoInfo(videoOffsetFromStart = offset, videoLength = videoLength)
+            } else {
+                null
+            }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun getXmpVideoLength(xmpXml: String): Long? {
+        MICRO_VIDEO_OFFSET_REGEX.find(xmpXml)?.groupValues?.getOrNull(1)?.toLongOrNull()?.let {
+            return it
+        }
+
+        val semanticIndex = xmpXml.indexOf("Semantic=\"MotionPhoto\"")
+        if (semanticIndex == -1) {
+            return null
+        }
+
+        val elementStart = xmpXml.lastIndexOf('<', semanticIndex)
+        val elementEnd = xmpXml.indexOf('>', semanticIndex)
+        if (elementStart == -1 || elementEnd == -1) {
+            return null
+        }
+
+        val element = xmpXml.substring(elementStart, elementEnd)
+        return ITEM_LENGTH_REGEX.find(element)?.groupValues?.getOrNull(1)?.toLongOrNull()
+    }
+
+    private fun getFileSize(context: Context, path: String): Long {
+        return if (path.startsWith("content:/")) {
+            context.contentResolver.openFileDescriptor(path.toUri(), "r")?.use { it.statSize } ?: 0L
+        } else {
+            File(path).length()
+        }
+    }
+
+    private fun readBytes(context: Context, path: String, offset: Long, length: Int): ByteArray? {
+        return if (path.startsWith("content:/")) {
+            readBytesFromUri(context, path.toUri(), offset, length)
+        } else {
+            RandomAccessFile(File(path), "r").use { raf ->
+                raf.seek(offset)
+                ByteArray(length).also { raf.readFully(it) }
+            }
+        }
+    }
+
+    /** Copies the embedded video into its own file. Returns true on success. */
+    fun exportVideo(context: Context, path: String, info: MotionPhotoInfo, destination: File): Boolean {
+        return try {
+            val input = if (path.startsWith("content:/")) {
+                context.contentResolver.openInputStream(path.toUri())
+            } else {
+                File(path).inputStream()
+            } ?: return false
+
+            input.use { stream ->
+                var toSkip = info.videoOffsetFromStart
+                while (toSkip > 0) {
+                    val skipped = stream.skip(toSkip)
+                    if (skipped <= 0) {
+                        return false
+                    }
+                    toSkip -= skipped
+                }
+
+                destination.outputStream().use { output ->
+                    stream.copyTo(output)
+                }
+            }
+            true
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun findVideoOffset(context: Context, path: String): MotionPhotoInfo? {
