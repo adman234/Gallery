@@ -2,5 +2,17 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "local>adman234/renovate-config"
+  ],
+  "packageRules": [
+    {
+      "description": "JitPack commit pins and the abandoned sanselan release have no versions Renovate can track; skip the lookups that fail against Maven Central",
+      "matchPackageNames": [
+        "org.fossify:subsampling-scale-image-view",
+        "org.fossify:gestureviews",
+        "com.github.naveensingh:androidphotofilters",
+        "org.apache.sanselan:sanselan"
+      ],
+      "enabled": false
+    }
   ]
 }
